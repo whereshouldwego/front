@@ -93,6 +93,13 @@ const InitialScreen: React.FC<InitialScreenProps> = ({ onEnterApp }) => {
           <div className={styles.loadingSpinner}>
             <div className={styles.spinner}></div>
             <p>카카오 로그인 중...</p>
+            {/* 취소 버튼 추가 */}
+            <button 
+              onClick={handleLoginModalClose} // ✅ 함수 사용
+              className={styles.cancelButton}
+            >
+              취소
+            </button>
           </div>
         </div>
       )}

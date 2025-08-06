@@ -207,6 +207,23 @@
   100% { transform: rotate(360deg); }
 }
 
+.cancelButton {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.cancelButton:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
 /* 애니메이션 효과 추가 */
 .container {
   animation: fadeIn 0.6s ease-out;

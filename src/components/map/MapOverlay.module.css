@@ -214,4 +214,34 @@
     padding: 7px 11px; /* 10px 16px * 0.7 */
     font-size: 11px; /* 16px * 0.7 */
   }
+}
+
+/* 다른 사용자 커서 스타일 */
+.otherCursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  transform-origin: top left;
+}
+
+.cursorDot {
+  width: 10px;
+  height: 10px;
+  background-color: #FF0000; /* 빨간색 커서 */
+  border-radius: 50%;
+  border: 1px solid #FFFFFF;
+}
+
+.cursorLabel {
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #FFFFFF;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  margin-left: 5px;
+  white-space: nowrap;
 } 

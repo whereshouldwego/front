@@ -26,9 +26,9 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { ChatProvider } from '../../stores/ChatContext';
-import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
-import { WebSocketProvider } from '../../stores/WebSocketContext';
+import { ChatProvider } from '../../stores/ChatContext'; // Updated import
+import { SidebarProvider, useSidebar } from '../../stores/SidebarContext'; // Updated import
+import { WebSocketProvider, useWebSocket } from '../../stores/WebSocketContext';
 import { restaurantData } from '../../data/restaurantData';
 import type { MapCenter, MapEventHandlers, MapMarker, UserProfile } from '../../types';
 import ChatSection from '../chat/ChatSection';
@@ -40,6 +40,7 @@ import InitialScreen from '../initial/InitialScreen';
 // 메인 콘텐츠 컴포넌트
 const MainContent: React.FC = () => {
   const { searchResults, recommendations, favorites, votes } = useSidebar();
+  const { otherUsersCursors } = useWebSocket();
   
   // 동적 사용자 프로필 예시
   const [users, setUsers] = useState<UserProfile[]>([
@@ -168,6 +169,25 @@ const MainContent: React.FC = () => {
       <ChatSection
         onAuroraToggle={handleAuroraToggle}
       />
+
+      {/* 다른 사용자 커서 렌더링 */}
+      {[...otherUsersCursors.entries()].map(([userId, cursor]) => (
+        <div
+          key={userId}
+          style={{
+            position: 'absolute',
+            left: cursor.x,
+            top: cursor.y,
+            width: '20px',
+            height: '20px',
+            backgroundColor: 'red',
+            borderRadius: '50%',
+            pointerEvents: 'none',
+            zIndex: 9999,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      ))}
     </div>
   );
 };
@@ -186,8 +206,8 @@ const AppContainer: React.FC = () => {
     setAppState('main');
     
     console.log(`${type === 'guest' ? '비회원' : '회원'}으로 앱 진입:`, data);
-    console.log('현재 사용자 타입:', type);
-    console.log('사용자 데이터:', data);
+    console.log('현재 사용자 타입:', userType);
+    console.log('사용자 데이터:', userData);
   };
 
   return (
