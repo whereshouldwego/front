@@ -26,19 +26,20 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { ChatProvider } from '../../stores/ChatContext'; // Updated import
-import { SidebarProvider, useSidebar } from '../../stores/SidebarContext'; // Updated import
+import { ChatProvider } from '../../stores/ChatContext';
+import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
 import { WebSocketProvider } from '../../stores/WebSocketContext';
 import { restaurantData } from '../../data/restaurantData';
 import type { MapCenter, MapEventHandlers, MapMarker, UserProfile } from '../../types';
 import ChatSection from '../chat/ChatSection';
 import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
-import { Sidebar } from '../sidebar'; // Updated import
+import { Sidebar } from '../sidebar';
+import InitialScreen from '../initial/InitialScreen';
 
 // 메인 콘텐츠 컴포넌트
 const MainContent: React.FC = () => {
-  const { isExpanded, searchResults, recommendations, favorites, votes } = useSidebar();
+  const { searchResults, recommendations, favorites, votes } = useSidebar();
   
   // 동적 사용자 프로필 예시
   const [users, setUsers] = useState<UserProfile[]>([
@@ -147,11 +148,11 @@ const MainContent: React.FC = () => {
       style={{ 
         position: 'fixed',
         top: 0,
-        left: isExpanded ? '229px' : '63px',
+        left: 0,
         right: 0,
         bottom: 0,
-        width: `calc(100vw - ${isExpanded ? '229px' : '63px'})`,
-        transition: 'left 0.3s cubic-bezier(.4,0,.2,1), width 0.3s cubic-bezier(.4,0,.2,1)'
+        width: '100vw',
+        height: '100vh'
       }}
     >
       <MapContainer
@@ -173,18 +174,41 @@ const MainContent: React.FC = () => {
 
 // 앱 컨테이너 메인 컴포넌트
 const AppContainer: React.FC = () => {
+  // 앱 상태 관리
+  const [appState, setAppState] = useState<'initial' | 'main'>('initial');
+  const [userType, setUserType] = useState<'guest' | 'member' | null>(null);
+  const [userData, setUserData] = useState<any>(null);
+
+  // 앱 진입 핸들러
+  const handleEnterApp = (type: 'guest' | 'member', data?: any) => {
+    setUserType(type);
+    setUserData(data);
+    setAppState('main');
+    
+    console.log(`${type === 'guest' ? '비회원' : '회원'}으로 앱 진입:`, data);
+    console.log('현재 사용자 타입:', type);
+    console.log('사용자 데이터:', data);
+  };
+
   return (
     <WebSocketProvider>
       <SidebarProvider>
         <ChatProvider>
           <div className="h-screen relative">
-            {/* 사이드바 토글 컨테이너 */}
-            <div id="sidebar-container">
-              <Sidebar />
+            {/* 메인 앱 (배경으로 항상 표시) */}
+            <div className="absolute inset-0">
+              <div id="sidebar-container">
+                <Sidebar />
+              </div>
+              <MainContent />
             </div>
-            
-            {/* 메인 콘텐츠 영역 */}
-            <MainContent />
+
+            {/* 초기 화면 오버레이 */}
+            {appState === 'initial' && (
+              <div className="absolute inset-0 z-50">
+                <InitialScreen onEnterApp={handleEnterApp} />
+              </div>
+            )}
           </div>
         </ChatProvider>
       </SidebarProvider>
@@ -192,4 +216,4 @@ const AppContainer: React.FC = () => {
   );
 };
 
-export default AppContainer; 
+export default AppContainer;
