@@ -20,6 +20,7 @@
  * - 이벤트 핸들러들
  *
  * Provider:
+ * - WebSocketProvider: 웹소켓 상태 관리
  * - SidebarProvider: 사이드바 상태 관리
  * - ChatProvider: 채팅 상태 관리
  */
@@ -27,6 +28,7 @@
 import React, { useMemo, useState } from 'react';
 import { ChatProvider } from '../../stores/ChatContext'; // Updated import
 import { SidebarProvider, useSidebar } from '../../stores/SidebarContext'; // Updated import
+import { WebSocketProvider } from '../../stores/WebSocketContext';
 import { restaurantData } from '../../data/restaurantData';
 import type { MapCenter, MapEventHandlers, MapMarker, UserProfile } from '../../types';
 import ChatSection from '../chat/ChatSection';
@@ -172,19 +174,21 @@ const MainContent: React.FC = () => {
 // 앱 컨테이너 메인 컴포넌트
 const AppContainer: React.FC = () => {
   return (
-    <SidebarProvider>
-      <ChatProvider>
-        <div className="h-screen relative">
-          {/* 사이드바 토글 컨테이너 */}
-          <div id="sidebar-container">
-            <Sidebar />
+    <WebSocketProvider>
+      <SidebarProvider>
+        <ChatProvider>
+          <div className="h-screen relative">
+            {/* 사이드바 토글 컨테이너 */}
+            <div id="sidebar-container">
+              <Sidebar />
+            </div>
+            
+            {/* 메인 콘텐츠 영역 */}
+            <MainContent />
           </div>
-          
-          {/* 메인 콘텐츠 영역 */}
-          <MainContent />
-        </div>
-      </ChatProvider>
-    </SidebarProvider>
+        </ChatProvider>
+      </SidebarProvider>
+    </WebSocketProvider>
   );
 };
 
