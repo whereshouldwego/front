@@ -30,7 +30,6 @@ VITE_KAKAO_REDIRECT_URI=http://localhost:5173/auth/kakao/callback
 
 # 백엔드 API 서버 주소
 VITE_API_URL=http://localhost:8080
-REACT_APP_API_BASE_URL=http://localhost:8080
 ```
 
 ### 3. 개발 서버 실행
