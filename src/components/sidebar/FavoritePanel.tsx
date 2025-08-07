@@ -11,23 +11,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { PANEL_CONFIGS, LOADING_MESSAGES, EMPTY_MESSAGES } from '../../constants/sidebar';
+import type { Restaurant } from '../../types';
 import RestaurantCard from '../ui/RestaurantCard';
 import styles from './SidebarPanels.module.css';
-
-const [favorites, setFavorites] = useState<Set<string>>(new Set());
-
-const handleFavoriteClick = (restaurantId: string) => {
-  setFavorites(prev => {
-    const newSet = new Set(prev);
-    newSet.delete(restaurantId);
-    return newSet;
-  });
-};
+import ActionButtons from '../ui/ActionButtons';
 
 const FavoritePanel: React.FC = () => {
-  const [favorites, setFavorites] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<Restaurant[]>([]);
+
+  const handleFavoriteClick = (restaurantId: string) => {
+    setFavorites(prev => prev.filter(favorite => favorite.id !== restaurantId));
+  };
 
   // 컴포넌트 마운트 시 찜한 맛집 데이터 가져오기
   useEffect(() => {
@@ -37,32 +33,38 @@ const FavoritePanel: React.FC = () => {
       
       try {
         // 실제 API 호출 대신 임시 데이터 사용
-        const mockFavorites = [
+        const mockFavorites: Restaurant[] = [
           {
             id: 'fav1',
             name: '찜한 맛집 1',
             category: '한식',
-            category_group_code: 'FD6',
-            category_group_name: '음식점',
+            distance: '100m',
+            description: '맛있는 한식집',
+            tags: ['한식', '가정식'],
+            location: {
+              lat: 37.5002,
+              lng: 127.0364,
+              address: '서울 강남구 강남대로 123'
+            },
             phone: '02-6666-7777',
-            address: '서울 강남구 강남대로 123',
-            road_address: '서울 강남구 강남대로 123',
-            location: { lat: 37.5002, lng: 127.0364 },
-            place_url: 'https://place.map.kakao.com/6666666666',
-            distance: '100m'
+            isFavorite: true,
+            isCandidate: false
           },
           {
             id: 'fav2',
             name: '찜한 맛집 2',
             category: '카페',
-            category_group_code: 'CE7',
-            category_group_name: '카페',
+            distance: '200m',
+            description: '분위기 좋은 카페',
+            tags: ['카페', '커피'],
+            location: {
+              lat: 37.5005,
+              lng: 127.0368,
+              address: '서울 강남구 강남대로 456'
+            },
             phone: '02-7777-8888',
-            address: '서울 강남구 강남대로 456',
-            road_address: '서울 강남구 강남대로 456',
-            location: { lat: 37.5005, lng: 127.0368 },
-            place_url: 'https://place.map.kakao.com/7777777777',
-            distance: '200m'
+            isFavorite: true,
+            isCandidate: false
           }
         ];
         
@@ -130,17 +132,15 @@ const FavoritePanel: React.FC = () => {
               {favorites.map((restaurant) => (
                 <div key={restaurant.id} className={styles.favoriteItem}>
                   <RestaurantCard
-                    key={restaurant.id}
                     restaurant={restaurant}
                     className={styles.restaurantCard}
-                  >
-                    <ActionButtons
-                      restaurantId={restaurant.id}
-                      showFavoriteButton={true}
-                      onFavoriteClick={handleFavoriteClick}
-                      isFavorited={true}
-                    />
-                  </RestaurantCard>
+                  />
+                  <ActionButtons
+                    restaurantId={restaurant.id}
+                    showFavoriteButton={true}
+                    onFavoriteClick={handleFavoriteClick}
+                    isFavorited={true}
+                  />
                 </div>
               ))}
             </div>

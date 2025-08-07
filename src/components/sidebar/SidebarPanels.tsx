@@ -25,25 +25,14 @@ import styles from './SidebarPanels.module.css';
 
 interface SidebarPanelsProps {
   activePanel: SidebarButtonType;
-  searchResults: any[];
-  onSearchResultsChange: (results: any[]) => void;
 }
 
-const SidebarPanels: React.FC<SidebarPanelsProps> = ({ 
-  activePanel, 
-  searchResults, 
-  onSearchResultsChange 
-}) => {
+const SidebarPanels: React.FC<SidebarPanelsProps> = ({ activePanel }) => {
   // 활성 패널에 따른 컴포넌트 렌더링
   const renderActivePanel = () => {
     switch (activePanel) {
       case 'search':
-        return (
-          <SearchPanel 
-            searchResults={searchResults}
-            onSearchResultsChange={onSearchResultsChange}
-          />
-        );
+        return <SearchPanel />;
       case 'recommend':
         return <RecommendPanel />;
       case 'candidate':
@@ -51,12 +40,7 @@ const SidebarPanels: React.FC<SidebarPanelsProps> = ({
       case 'favorite':
         return <FavoritePanel />;
       default:
-        return (
-          <SearchPanel 
-            searchResults={searchResults}
-            onSearchResultsChange={onSearchResultsChange}
-          />
-        ); // 기본값
+        return <SearchPanel />;
     }
   };
 

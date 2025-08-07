@@ -89,23 +89,22 @@ export interface KakaoPlaceDocument {
   phone: string;
   address_name: string;
   road_address_name: string;
-  x: string; // 경도
-  y: string; // 위도
+  x: string;
+  y: string;
   place_url: string;
   distance: string;
 }
-
 // 카카오맵 검색 요청 타입
 export interface KakaoSearchRequest {
   query: string;
-  x?: string; // 경도
-  y?: string; // 위도
-  radius?: number; // 반경 (미터)
-  rect?: string; // 사각형 영역
+  x?: string;
+  y?: string;
+  radius?: number;
+  rect?: string;
   page?: number;
   size?: number;
   sort?: 'accuracy' | 'distance';
-  category_group_code?: string; // 카테고리 그룹 코드
+  category_group_code?: string;
 }
 
 // 카카오맵 카테고리 검색 요청 타입
@@ -175,10 +174,17 @@ export interface PlaceApiResponse {
   message?: string;
 }
 
-// 장소 상세 정보 타입 (백엔드에서 제공하는 추가 정보)
+// AI 요약 정보 타입(백엔드에서 제공하는 정보)
+export interface AiSummary {
+  menu: string[];
+  mood: string[];
+  feature: string[];
+  purpose: string[];
+}
+
+// 장소 상세 정보 인터페이스
 export interface PlaceDetail {
-  id: string;
-  kakaoPlaceId: string;
+  id: number;
   name: string;
   category: string;
   categoryGroup: string;
@@ -192,7 +198,7 @@ export interface PlaceDetail {
   placeUrl: string;
   // 백엔드에서 제공하는 추가 정보
   reviewCount?: number;
-  ai_summary?: string; // AI 요약 정보
+  ai_summary?: AiSummary; // AI 요약 정보
   tags?: string[]; // 태그 정보
 }
 
@@ -251,24 +257,26 @@ export interface Restaurant {
   id: string;
   name: string;
   category: string;
-  category_group_code?: string;
-  category_group_name?: string;
-  phone?: string;
-  address: string;
-  road_address?: string;
+  distance: string;
+  description: string;
+  tags: string[];
   location: {
     lat: number;
     lng: number;
+    address: string;
   };
+  phone: string;
+  isFavorite: boolean;
+  isCandidate: boolean;
+  summary?: AiSummary;
+  reviewCount?: number;
+  placeUrl?: string;
+  category_group_code?: string;
+  category_group_name?: string;
+  address?: string;
+  road_address?: string;
   place_url?: string;
-  distance?: string;
-  rating?: number;
-  price?: string;
-  description?: string;
-  tags?: string[];
-  images?: string[];
-  isFavorite?: boolean;
-  isCandidate?: boolean;
+  voteCount?: number;
 }
 
 // 검색 요청 타입
@@ -292,56 +300,29 @@ export interface SearchResponse {
   message?: string;
 }
 
-// 추천 요청 타입
-export interface RecommendRequest {
+export interface VoteInfo {
+  voteId: string;
+  roomId: string;
   userId: string;
-  location: string;
-  preferences?: {
-    categories?: string[];
-  };
-  limit?: number;
+  placeId: string;
 }
 
-// 추천 응답 타입
-export interface RecommendResponse {
-  success: boolean;
-  data: Restaurant[];
-  reason: string;
-  message?: string;
-}
-
-// 찜하기 요청 타입
-export interface FavoriteRequest {
+export interface FavoriteInfo {
+  favoriteId: string;
   userId: string;
-  restaurantId: string;
-  action: 'add' | 'remove';
+  placeId: string;
 }
 
-// 찜하기 응답 타입
-export interface FavoriteResponse {
-  success: boolean;
-  data: {
-    isFavorite: boolean;
-    favoriteCount: number;
-  };
-  message?: string;
+export interface RecommendationInfo {
+  recommendationId: string;
+  roomId: string;
+  placeId: string;
 }
 
-// 투표 요청 타입
-export interface VoteRequest {
-  userId: string;
-  restaurantId: string;
-  action: 'vote' | 'unvote';
-}
-
-// 투표 응답 타입
-export interface VoteResponse {
-  success: boolean;
-  data: {
-    voteCount: number;
-    hasVoted: boolean;
-  };
-  message?: string;
+export interface CandidateInfo {
+  candidateId: string;
+  roomId: string;
+  placeId: string;
 }
 
 // 채팅 요청 타입
@@ -400,7 +381,11 @@ export interface ApiError {
 }
 
 // API 응답 공통 타입
-export type ApiResponse<T> = T | ApiError;
+export type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: ApiError;
+};
 
 // ===== 상태 관리 타입들 =====
 

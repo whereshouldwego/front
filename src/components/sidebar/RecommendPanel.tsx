@@ -9,40 +9,14 @@
  * - 로딩 및 에러 상태 처리
  */
 
-import React, { useState, useEffect } from 'react';
-import { PANEL_CONFIGS, LOADING_MESSAGES, EMPTY_MESSAGES } from '../../constants/sidebar';
+import React, { useEffect, useState } from 'react';
+import { EMPTY_MESSAGES, LOADING_MESSAGES, PANEL_CONFIGS } from '../../constants/sidebar';
+import type { Restaurant } from '../../types';
 import RestaurantCard from '../ui/RestaurantCard';
 import styles from './SidebarPanels.module.css';
 
-const [candidates, setCandidates] = useState<Set<string>>(new Set());
-const [favorites, setFavorites] = useState<Set<string>>(new Set());
-
-const handleCandidateClick = (restaurantId: string) => {
-  setCandidates(prev => {
-    const newSet = new Set(prev);
-    if (newSet.has(restaurantId)) {
-      newSet.delete(restaurantId);
-    } else {
-      newSet.add(restaurantId);
-    }
-    return newSet;
-  });
-};
-
-const handleFavoriteClick = (restaurantId: string) => {
-  setFavorites(prev => {
-    const newSet = new Set(prev);
-    if (newSet.has(restaurantId)) {
-      newSet.delete(restaurantId);
-    } else {
-      newSet.add(restaurantId);
-    }
-    return newSet;
-  });
-};
-
 const RecommendPanel: React.FC = () => {
-  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,19 +28,19 @@ const RecommendPanel: React.FC = () => {
       
       try {
         // 실제 API 호출 대신 임시 데이터 사용
-        const mockRecommendations = [
+        const mockRecommendations: Restaurant[] = [
           {
             id: 'rec1',
             name: '맛있는 한식집',
             category: '한식',
-            category_group_code: 'FD6',
-            category_group_name: '음식점',
+            distance: '100m',
             phone: '02-1111-2222',
-            address: '서울 강남구 강남대로 123',
-            road_address: '서울 강남구 강남대로 123',
-            location: { lat: 37.5002, lng: 127.0364 },
-            place_url: 'https://place.map.kakao.com/1111111111',
-            distance: '100m'
+            location: { lat: 37.5002, lng: 127.0364, address: '서울 강남구 강남대로 123'},
+            placeUrl: 'https://place.map.kakao.com/1111111111',
+            description: '정갈한 한식과 친절한 서비스',
+            tags: ['한식', '가정식'],
+            isFavorite: false,
+            isCandidate: false
           },
           {
             id: 'rec2',
@@ -77,9 +51,13 @@ const RecommendPanel: React.FC = () => {
             phone: '02-2222-3333',
             address: '서울 강남구 강남대로 456',
             road_address: '서울 강남구 강남대로 456',
-            location: { lat: 37.5005, lng: 127.0368 },
+            location: { lat: 37.5005, lng: 127.0368, address: '서울 강남구 강남대로 456' },
             place_url: 'https://place.map.kakao.com/2222222222',
-            distance: '200m'
+            distance: '200m',
+            description: '분위기 좋은 양식 레스토랑',
+            tags: ['양식', '스테이크'],
+            isFavorite: false,
+            isCandidate: false
           },
           {
             id: 'rec3',
@@ -90,9 +68,13 @@ const RecommendPanel: React.FC = () => {
             phone: '02-3333-4444',
             address: '서울 강남구 강남대로 789',
             road_address: '서울 강남구 강남대로 789',
-            location: { lat: 37.5008, lng: 127.0372 },
+            location: { lat: 37.5008, lng: 127.0372, address: '서울 강남구 강남대로 789' },
             place_url: 'https://place.map.kakao.com/3333333333',
-            distance: '300m'
+            distance: '300m',
+            description: '신선한 재료의 일식집',
+            tags: ['일식', '초밥'],
+            isFavorite: false,
+            isCandidate: false
           }
         ];
         
@@ -151,15 +133,15 @@ const RecommendPanel: React.FC = () => {
                   restaurant={restaurant}
                   className={styles.restaurantCard}
                 >
-                  <ActionButtons
+                  {/* <ActionButtons
                     restaurantId={restaurant.id}
                     showFavoriteButton={true}
                     showCandidateButton={true}
                     onFavoriteClick={handleFavoriteClick}
                     onCandidateClick={handleCandidateClick}
-                    isFavorited={favorites.has(restaurant.id)}
-                    isCandidate={candidates.has(restaurant.id)}
-                  />
+                    isFavorited={(favorites as Set<string>).has(restaurant.id)}
+                    isCandidate={(candidates as Set<string>).has(restaurant.id)}
+                  /> */}
                 </RestaurantCard>
               ))}
             </div>

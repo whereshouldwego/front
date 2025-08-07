@@ -21,27 +21,43 @@
 
 import React, { useMemo, useState } from 'react';
 import type { MapMarker, MapEventHandlers, MapOverlayConfig } from '../../types';
-import { restaurantData } from '../../data/restaurantData';
 import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
 import { Sidebar } from '../sidebar';
 import styles from './AppContainer.module.css';
 
 // 메인 콘텐츠 컴포넌트
-const MainContent: React.FC<{ searchResults: any[] }> = ({ searchResults }) => {
-  // 마커 데이터 생성
+const MainContent: React.FC = () => {
+  // 기본 마커 데이터 생성 (목업용)
   const mapMarkers = useMemo((): MapMarker[] => {
-    return searchResults.map(restaurant => ({
-      id: restaurant.id,
-      position: {
-        lat: restaurant.location.lat,
-        lng: restaurant.location.lng
-      },
-      title: restaurant.name,
-      category: restaurant.category,
-      restaurant: restaurant
-    }));
-  }, [searchResults]);
+    return [
+      {
+        id: 'default1',
+        position: {
+          lat: 37.5002,
+          lng: 127.0364
+        },
+        title: '기본 위치',
+        category: '기본',
+        restaurant: {
+          id: 'default1',
+          name: '기본 위치',
+          category: '기본',
+          distance: '0m',
+          description: '기본 위치',
+          tags: ['기본'],
+          location: {
+            lat: 37.5002,
+            lng: 127.0364,
+            address: '서울 강남구'
+          },
+          phone: '',
+          isFavorite: false,
+          isCandidate: false
+        }
+      }
+    ];
+  }, []);
 
   // 이벤트 핸들러들
   const handleDepartureSubmit = (location: string) => {
@@ -102,12 +118,7 @@ const MainContent: React.FC<{ searchResults: any[] }> = ({ searchResults }) => {
 
 // 앱 컨테이너 컴포넌트
 const AppContainer: React.FC = () => {
-  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
-
-  const handleSearchResultsChange = (results: any[]) => {
-    setSearchResults(results);
-  };
 
   const handleSidebarExpandedChange = (expanded: boolean) => {
     setIsSidebarExpanded(expanded);
@@ -117,7 +128,6 @@ const AppContainer: React.FC = () => {
     <div className={styles.appContainer}>
       {/* 사이드바 */}
       <Sidebar 
-        onSearchResultsChange={handleSearchResultsChange}
         onExpandedChange={handleSidebarExpandedChange}
       />
       
@@ -129,7 +139,7 @@ const AppContainer: React.FC = () => {
           transition: 'margin-left 0.3s ease'
         }}
       >
-        <MainContent searchResults={searchResults} />
+        <MainContent />
       </div>
     </div>
   );

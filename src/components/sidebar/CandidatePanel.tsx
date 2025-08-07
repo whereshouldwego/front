@@ -9,29 +9,29 @@
  * - 로딩 및 에러 상태 처리
  */
 
-import React, { useState, useEffect } from 'react';
-import { PANEL_CONFIGS, LOADING_MESSAGES, EMPTY_MESSAGES } from '../../constants/sidebar';
+import React, { useEffect, useState } from 'react';
+import { EMPTY_MESSAGES, LOADING_MESSAGES, PANEL_CONFIGS } from '../../constants/sidebar';
 import RestaurantCard from '../ui/RestaurantCard';
+import ActionButtons from '../ui/ActionButtons';
 import styles from './SidebarPanels.module.css';
-
-const [votedRestaurants, setVotedRestaurants] = useState<Set<string>>(new Set());
-
-const handleVoteClick = (restaurantId: string) => {
-  setVotedRestaurants(prev => {
-    const newSet = new Set(prev);
-    if (newSet.has(restaurantId)) {
-      newSet.delete(restaurantId);
-    } else {
-      newSet.add(restaurantId);
-    }
-    return newSet;
-  });
-};
 
 const CandidatePanel: React.FC = () => {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [votedRestaurants, setVotedRestaurants] = useState<Set<string>>(new Set());
+
+  const handleVoteClick = (restaurantId: string) => {
+    setVotedRestaurants(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(restaurantId)) {
+        newSet.delete(restaurantId);
+      } else {
+        newSet.add(restaurantId);
+      }
+      return newSet;
+    });
+  };
 
   // 컴포넌트 마운트 시 후보 데이터 가져오기
   useEffect(() => {
@@ -146,13 +146,6 @@ const CandidatePanel: React.FC = () => {
                     restaurant={restaurant}
                     className={styles.restaurantCard}
                   >
-                    <ActionButtons
-                      restaurantId={restaurant.id}
-                      showVoteButton={true}
-                      onVoteClick={handleVoteClick}
-                      isVoted={votedRestaurants.has(restaurant.id)}
-                      voteCount={restaurant.voteCount || 0}
-                    />
                   </RestaurantCard>
                   <button
                     onClick={() => handleVote(restaurant.id)}

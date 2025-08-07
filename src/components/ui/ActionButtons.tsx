@@ -36,7 +36,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             e.stopPropagation();
             onFavoriteClick?.(restaurantId);
           }}
-          title={isFavorited ? '찜 해제' : '찜하기'}
+          title={isFavorited ? '찜해제' : '찜하기'}
         >
           {isFavorited ? '❤️' : '🤍'}
         </button>
@@ -49,7 +49,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             e.stopPropagation();
             onVoteClick?.(restaurantId);
           }}
-          title={isVoted ? '투표 취소' : '투표하기'}
+          title={isVoted ? '투표취소' : '투표하기'}
         >
           {isVoted ? '✅' : '🗳️'}
         </button>
@@ -62,7 +62,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             e.stopPropagation();
             onCandidateClick?.(restaurantId);
           }}
-          title={isCandidate ? '후보에서 제거' : '후보에 추가'}
+          title={isCandidate ? '후보제거' : '후보추가'}
         >
           {isCandidate ? '⭐' : '☆'}
         </button>

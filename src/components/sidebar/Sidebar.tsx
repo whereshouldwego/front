@@ -12,29 +12,24 @@
  */
 
 import React, { useState } from 'react';
-import { BUTTON_CONFIGS, SIDEBAR_SIZES, LOGO_CONFIG } from '../../constants/sidebar';
+import { BUTTON_CONFIGS, LOGO_CONFIG } from '../../constants/sidebar';
 import type { SidebarButtonType } from '../../types';
-import KakaoLoginModal from '../auth/KakaoLoginModal';
-import SidebarPanels from './SidebarPanels';
 import styles from './Sidebar.module.css';
-
+import SidebarPanels from './SidebarPanels';
 
 interface SidebarProps {
-  onSearchResultsChange?: (results: any[]) => void;
   onExpandedChange?: (expanded: boolean) => void;
   onLogoClick?: () => void;
   onButtonClick?: (buttonType: SidebarButtonType) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
-  onSearchResultsChange,
   onExpandedChange,
   onLogoClick,
   onButtonClick,
  }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [activePanel, setActivePanel] = useState<SidebarButtonType>('search');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
 
   const toggleSidebar = () => {
     const newExpanded = !isExpanded;
@@ -57,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     } else {
       // 열려있는 상태에서 로고 클릭 시 사이드바 닫기
       toggleSidebar();
-    setActivePanel('' as any);
+      setActivePanel('' as any);
     }
     onLogoClick?.();
   };
@@ -70,11 +65,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     
     const button = buttons.find(btn => btn.type === activePanel);
     return button ? `translateY(${button.position}px)` : 'translateY(-100px)';
-  };
-
-  const handleSearchResultsChange = (results: any[]) => {
-    setSearchResults(results);
-    onSearchResultsChange?.(results);
   };
 
   return (
@@ -121,8 +111,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className={styles.sidebarPanels}>
             <SidebarPanels 
               activePanel={activePanel}
-              searchResults={searchResults}
-              onSearchResultsChange={handleSearchResultsChange}
             />
           </div>
         </div>

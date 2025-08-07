@@ -147,12 +147,6 @@ const MapContainer: React.FC<MapContainerProps> = ({
                 <h3 className="m-0 mb-1 text-sm font-bold text-gray-900">
                   {markerData.restaurant.name}
                 </h3>
-                <p className="m-0 text-xs text-gray-600">
-                  {markerData.restaurant.category} • {markerData.restaurant.price}
-                </p>
-                <p className="mt-1 mb-0 text-xs text-gray-500">
-                  ⭐ {markerData.restaurant.rating} • {markerData.restaurant.distance}
-                </p>
               </div>
             )}
           </MapMarker>
