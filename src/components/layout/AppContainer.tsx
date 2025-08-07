@@ -6,11 +6,10 @@
  * 기능:
  * - 전체 앱 레이아웃 관리
  * - 사이드바와 메인 콘텐츠 영역 구성
- * - 지도와 채팅 섹션 통합
- * - 사용자 프로필 및 위치 관리
+ * - 지도와 오버레이 통합
  *
  * 구조:
- * - 사이드바 (왼쪽)
+ * - 사이드바 (왼쪽 고정)
  * - 메인 콘텐츠 영역 (지도 + 오버레이)
  * - 채팅 섹션 (오른쪽)
  *
@@ -18,75 +17,21 @@
  * - 사용자 프로필 정보
  * - 지도 마커 데이터
  * - 이벤트 핸들러들
- *
- * Provider:
- * - WebSocketProvider: 웹소켓 상태 관리
- * - SidebarProvider: 사이드바 상태 관리
- * - ChatProvider: 채팅 상태 관리
  */
 
 import React, { useMemo, useState } from 'react';
-import { ChatProvider } from '../../stores/ChatContext'; // Updated import
-import { SidebarProvider, useSidebar } from '../../stores/SidebarContext'; // Updated import
-import { WebSocketProvider, useWebSocket } from '../../stores/WebSocketContext';
+import type { MapMarker, MapEventHandlers, MapOverlayConfig } from '../../types';
 import { restaurantData } from '../../data/restaurantData';
-import type { MapCenter, MapEventHandlers, MapMarker, UserProfile } from '../../types';
-import ChatSection from '../chat/ChatSection';
 import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
 import { Sidebar } from '../sidebar';
-import InitialScreen from '../initial/InitialScreen';
+import styles from './AppContainer.module.css';
 
 // 메인 콘텐츠 컴포넌트
-const MainContent: React.FC = () => {
-  const { searchResults, recommendations, favorites, votes } = useSidebar();
-  const { otherUsersCursors } = useWebSocket();
-  
-  // 동적 사용자 프로필 예시
-  const [users, setUsers] = useState<UserProfile[]>([
-    {
-      id: 'me',
-      name: '나',
-      location: '강남역',
-      avatarColor: '#FF6B6B',
-      isCurrentUser: true
-    },
-    {
-      id: 'yoon',
-      name: '윤',
-      location: '홍대입구역',
-      avatarColor: '#4ECDC4'
-    },
-    {
-      id: 'yekyung',
-      name: '예',
-      location: '고속버스터미널',
-      avatarColor: '#45B7D1'
-    },
-    {
-      id: 'kyuback',
-      name: '규',
-      location: '합정역',
-      avatarColor: '#96CEB4'
-    }
-  ]);
-
-  // 현재 활성 패널에 따른 마커 데이터 생성
+const MainContent: React.FC<{ searchResults: any[] }> = ({ searchResults }) => {
+  // 마커 데이터 생성
   const mapMarkers = useMemo((): MapMarker[] => {
-    let restaurants = restaurantData.search || [];
-    
-    // 활성 패널에 따른 데이터 선택
-    if (searchResults.length > 0) {
-      restaurants = searchResults;
-    } else if (recommendations.length > 0) {
-      restaurants = recommendations;
-    } else if (favorites.length > 0) {
-      restaurants = favorites;
-    } else if (votes.length > 0) {
-      restaurants = votes;
-    }
-
-    return restaurants.map(restaurant => ({
+    return searchResults.map(restaurant => ({
       id: restaurant.id,
       position: {
         lat: restaurant.location.lat,
@@ -96,29 +41,15 @@ const MainContent: React.FC = () => {
       category: restaurant.category,
       restaurant: restaurant
     }));
-  }, [searchResults, recommendations, favorites, votes]);
+  }, [searchResults]);
 
   // 이벤트 핸들러들
-  const handleAuroraToggle = (isActive: boolean) => {
-    console.log('Aurora 버튼 상태:', isActive);
-  };
-
   const handleDepartureSubmit = (location: string) => {
     console.log('출발지 설정:', location);
-    // 사용자 위치 업데이트
-    setUsers(prev => prev.map(user => 
-      user.isCurrentUser 
-        ? { ...user, location } 
-        : user
-    ));
   };
 
   const handleCurrentLocationClick = () => {
     console.log('현위치 재검색 클릭');
-  };
-
-  const handleUserProfileClick = (userId: string) => {
-    console.log('사용자 프로필 클릭:', userId);
   };
 
   const handleRestaurantClick = (restaurantId: string) => {
@@ -134,7 +65,7 @@ const MainContent: React.FC = () => {
       console.log('마커 클릭:', markerId);
       handleRestaurantClick(markerId);
     },
-    onMapDragEnd: (center: MapCenter) => {
+    onMapDragEnd: (center) => {
       console.log('지도 드래그 종료:', center);
     },
     onMapZoomChanged: (level: number) => {
@@ -142,98 +73,66 @@ const MainContent: React.FC = () => {
     }
   };
 
+  // 지도 오버레이 설정
+  const mapOverlayConfig: MapOverlayConfig = {
+    showDepartureSearch: false,
+    departureLocation: '',
+    currentLocationButtonText: '현 지도에서 검색'
+  };
+
   return (
-    <div 
-      className="bg-gray-100 relative overflow-hidden"
-      id="main-content"
-      style={{ 
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100vw',
-        height: '100vh'
-      }}
-    >
+    <div className={styles.mainContent}>
+      {/* 지도 컨테이너 */}
       <MapContainer
         markers={mapMarkers}
         eventHandlers={mapEventHandlers}
+        className={styles.mapContainer}
       />
+      
+      {/* 지도 오버레이 */}
       <MapOverlay
-        users={users}
-        onDepartureSubmit={handleDepartureSubmit}
-        onCurrentLocationClick={handleCurrentLocationClick}
-        onUserProfileClick={handleUserProfileClick}
+        config={mapOverlayConfig}
+        onDepartureSearch={handleDepartureSubmit}
+        onCurrentLocation={handleCurrentLocationClick}
+        className={styles.mapOverlay}
       />
-      <ChatSection
-        onAuroraToggle={handleAuroraToggle}
-      />
-
-      {/* 다른 사용자 커서 렌더링 */}
-      {[...otherUsersCursors.entries()].map(([userId, cursor]) => (
-        <div
-          key={userId}
-          style={{
-            position: 'absolute',
-            left: cursor.x,
-            top: cursor.y,
-            width: '20px',
-            height: '20px',
-            backgroundColor: 'red',
-            borderRadius: '50%',
-            pointerEvents: 'none',
-            zIndex: 9999,
-            transform: 'translate(-50%, -50%)',
-          }}
-        />
-      ))}
     </div>
   );
 };
 
-// 앱 컨테이너 메인 컴포넌트
+// 앱 컨테이너 컴포넌트
 const AppContainer: React.FC = () => {
-  // 앱 상태 관리
-  const [appState, setAppState] = useState<'initial' | 'main'>('initial');
-  const [userType, setUserType] = useState<'guest' | 'member' | null>(null);
-  const [userData, setUserData] = useState<any>(null);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
 
-  // 앱 진입 핸들러
-  const handleEnterApp = (type: 'guest' | 'member', data?: any) => {
-    setUserType(type);
-    setUserData(data);
-    setAppState('main');
-    
-    console.log(`${type === 'guest' ? '비회원' : '회원'}으로 앱 진입:`, data);
-    console.log('현재 사용자 타입:', userType);
-    console.log('사용자 데이터:', userData);
+  const handleSearchResultsChange = (results: any[]) => {
+    setSearchResults(results);
+  };
+
+  const handleSidebarExpandedChange = (expanded: boolean) => {
+    setIsSidebarExpanded(expanded);
   };
 
   return (
-    <WebSocketProvider>
-      <SidebarProvider>
-        <ChatProvider>
-          <div className="h-screen relative">
-            {/* 메인 앱 (배경으로 항상 표시) */}
-            <div className="absolute inset-0">
-              <div id="sidebar-container">
-                <Sidebar />
-              </div>
-              <MainContent />
-            </div>
-
-            {/* 초기 화면 오버레이 */}
-            {appState === 'initial' && (
-              <div className="absolute inset-0 z-50">
-                <InitialScreen onEnterApp={handleEnterApp} />
-              </div>
-            )}
-          </div>
-        </ChatProvider>
-      </SidebarProvider>
-    </WebSocketProvider>
+    <div className={styles.appContainer}>
+      {/* 사이드바 */}
+      <Sidebar 
+        onSearchResultsChange={handleSearchResultsChange}
+        onExpandedChange={handleSidebarExpandedChange}
+      />
+      
+      {/* 메인 콘텐츠 영역 */}
+      <div 
+        className={styles.mainContent}
+        style={{
+          marginLeft: isSidebarExpanded ? '400px' : '90px',
+          transition: 'margin-left 0.3s ease'
+        }}
+      >
+        <MainContent searchResults={searchResults} />
+      </div>
+    </div>
   );
 };
 
-export default AppContainer;
+export default AppContainer; 

@@ -7,25 +7,13 @@
  * - 검색 상태 관리
  * - 디바운스된 검색
  * - 검색 히스토리 관리
- * - 검색 결과 필터링 및 정렬
- *
- * 사용법:
- * ```tsx
- * const {
- *   searchQuery,
- *   searchResults,
- *   isLoading,
- *   error,
- *   performSearch,
- *   clearSearch
- * } = useSearch();
- * ```
+ * - 초기 위치 기반 검색 (카페와 식당만)
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useSidebar } from '../stores/SidebarContext';
 import { debounce, isValidSearchQuery, SearchHistory } from '../utils/search';
-import type { Restaurant } from '../types';
+import type { Restaurant, MapCenter, SearchFilter } from '../types';
+import { integratedSearchAPI } from '../lib/api';
 
 interface UseSearchReturn {
   searchQuery: string;
@@ -34,6 +22,7 @@ interface UseSearchReturn {
   error: string | null;
   searchHistory: string[];
   performSearch: (query: string) => Promise<void>;
+  searchByLocation: (center: MapCenter, filter?: SearchFilter) => Promise<void>;
   clearSearch: () => void;
   addToHistory: (query: string) => void;
   removeFromHistory: (query: string) => void;
@@ -41,16 +30,11 @@ interface UseSearchReturn {
 }
 
 export const useSearch = (): UseSearchReturn => {
-  const {
-    searchResults,
-    searchLoading,
-    searchError,
-    performSearch: contextPerformSearch
-  } = useSidebar();
-
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Restaurant[]>([]);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const debouncedSearchRef = useRef<ReturnType<typeof debounce> | null>(null);
 
   // 검색 히스토리 로드
@@ -62,43 +46,59 @@ export const useSearch = (): UseSearchReturn => {
   useEffect(() => {
     debouncedSearchRef.current = debounce(async (query: string) => {
       if (!isValidSearchQuery(query)) {
-        setLocalError('검색어를 2글자 이상 입력해주세요.');
+        setError('검색어를 2글자 이상 입력해주세요.');
         return;
       }
 
-      setLocalError(null);
+      setIsLoading(true);
+      setError(null);
+      
       try {
-        await contextPerformSearch({
-          query,
-          location: 'current', // 실제로는 현재 위치를 가져와야 함
-          category: '',
-          limit: 15
-        });
+        const restaurants = await integratedSearchAPI.searchAndEnrich(query);
+        setSearchResults(restaurants);
+        setSearchQuery(query);
         
         // 검색 히스토리에 추가
         SearchHistory.add(query);
         setSearchHistory(SearchHistory.get());
       } catch (error) {
-        setLocalError('검색 중 오류가 발생했습니다.');
+        setError('검색 중 오류가 발생했습니다.');
+      } finally {
+        setIsLoading(false);
       }
     }, 300);
 
     return () => {
       // cleanup
     };
-  }, [contextPerformSearch]);
+  }, []);
 
   const performSearch = useCallback(async (query: string) => {
-    setSearchQuery(query);
-    
     if (debouncedSearchRef.current) {
       debouncedSearchRef.current(query);
     }
   }, []);
 
+  // 위치 기반 검색 (초기 검색용) - 카페와 식당만
+  const searchByLocation = useCallback(async (center: MapCenter, filter?: SearchFilter) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // 실제 카카오맵 API 호출 (카페와 식당만)
+      const restaurants = await integratedSearchAPI.searchByLocation(center, filter);
+      setSearchResults(restaurants);
+    } catch (err) {
+      setError('주변 맛집을 가져오는 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const clearSearch = useCallback(() => {
     setSearchQuery('');
-    setLocalError(null);
+    setSearchResults([]);
+    setError(null);
   }, []);
 
   const addToHistory = useCallback((query: string) => {
@@ -119,10 +119,11 @@ export const useSearch = (): UseSearchReturn => {
   return {
     searchQuery,
     searchResults,
-    isLoading: searchLoading,
-    error: localError || searchError,
+    isLoading,
+    error,
     searchHistory,
     performSearch,
+    searchByLocation,
     clearSearch,
     addToHistory,
     removeFromHistory,

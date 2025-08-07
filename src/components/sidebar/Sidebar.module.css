@@ -84,6 +84,7 @@
   height: 20px; /* 28px * 0.7 */
   margin-bottom: 4px; /* 6px * 0.7 */
   transition: all 0.2s ease;
+  line-height: 1;
 }
 
 .btnText {
@@ -91,6 +92,8 @@
   color: #666;
   font-weight: 500;
   transition: color 0.2s ease;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .toggleSlider {

@@ -40,7 +40,7 @@ export interface MapOverlayConfig {
 }
 
 // 레스토랑 카드 클릭 핸들러
-export type RestaurantCardClickHandler = (restaurantId: string) => void;
+export type RestaurantCardClickHandler = (restaurant: Restaurant) => void;
 
 // 사이드바 패널 설정
 export interface SidebarPanelConfig {
@@ -55,13 +55,161 @@ export interface BaseComponentProps {
   children?: React.ReactNode;
 }
 
-// ===== 카카오맵 관련 타입들 =====
+// ===== 카카오맵 API 관련 타입들 =====
 
 // 카카오맵 전역 타입
 declare global {
   interface Window {
     kakao: any;
   }
+}
+
+// 카카오맵 API 응답 타입
+export interface KakaoMapApiResponse {
+  meta: {
+    same_name: {
+      region: string[];
+      keyword: string;
+      selected_region: string;
+    } | null;
+    pageable_count: number;
+    total_count: number;
+    is_end: boolean;
+  };
+  documents: KakaoPlaceDocument[];
+}
+
+// 카카오맵 장소 문서 타입
+export interface KakaoPlaceDocument {
+  id: string;
+  place_name: string;
+  category_name: string;
+  category_group_code: string;
+  category_group_name: string;
+  phone: string;
+  address_name: string;
+  road_address_name: string;
+  x: string; // 경도
+  y: string; // 위도
+  place_url: string;
+  distance: string;
+}
+
+// 카카오맵 검색 요청 타입
+export interface KakaoSearchRequest {
+  query: string;
+  x?: string; // 경도
+  y?: string; // 위도
+  radius?: number; // 반경 (미터)
+  rect?: string; // 사각형 영역
+  page?: number;
+  size?: number;
+  sort?: 'accuracy' | 'distance';
+  category_group_code?: string; // 카테고리 그룹 코드
+}
+
+// 카카오맵 카테고리 검색 요청 타입
+export interface KakaoCategorySearchRequest {
+  category_group_code: string; // 카테고리 그룹 코드
+  x?: string; // 경도
+  y?: string; // 위도
+  radius?: number; // 반경 (미터)
+  rect?: string; // 사각형 영역
+  page?: number;
+  size?: number;
+  sort?: 'accuracy' | 'distance';
+}
+
+// 카카오맵 카테고리 그룹 코드
+export type KakaoCategoryGroupCode = 
+  | 'FD6' // 음식점
+  | 'CE7' // 카페
+  | 'AD5' // 숙박
+  | 'CS2' // 편의점
+  | 'SC4' // 학교
+  | 'HP8' // 병원
+  | 'PM9' // 약국
+  | 'AT4' // 관광명소
+  | 'SW8' // 지하철역
+  | 'PK6' // 주차장
+  | 'OL7' // 주유소
+  | 'MT1' // 대형마트
+  | 'AG2' // 중개업소
+  | 'PO3' // 공공기관
+  | 'CT1' // 문화시설
+  | 'PS3' // 유치원
+  | 'AC5' // 학원
+  | 'BB1' // 은행
+  | 'SP2' // 스포츠시설
+  | 'PK1' // 주차장
+  | 'LD5' // 숙박
+  | 'HP1' // 병원
+  | 'PM1' // 약국
+  | 'SW1' // 지하철역
+  | 'OL1' // 주유소
+  | 'MT1' // 대형마트
+  | 'AG1' // 중개업소
+  | 'PO1' // 공공기관
+  | 'CT1' // 문화시설
+  | 'PS1' // 유치원
+  | 'AC1' // 학원
+  | 'BB1' // 은행
+  | 'SP1'; // 스포츠시설
+
+// 카테고리 필터 타입
+export type CategoryFilter = 'all' | 'restaurant' | 'cafe';
+
+// 검색 필터 인터페이스
+export interface SearchFilter {
+  category: CategoryFilter;
+  radius?: number; // km
+  sort?: 'accuracy' | 'distance';
+}
+
+// ===== 백엔드 Place API 관련 타입들 =====
+
+// 백엔드 Place API 응답 타입
+export interface PlaceApiResponse {
+  success: boolean;
+  data: PlaceDetail;
+  message?: string;
+}
+
+// 장소 상세 정보 타입 (백엔드에서 제공하는 추가 정보)
+export interface PlaceDetail {
+  id: string;
+  kakaoPlaceId: string;
+  name: string;
+  category: string;
+  categoryGroup: string;
+  phone: string;
+  address: string;
+  roadAddress: string;
+  location: {
+    lat: number;
+    lng: number;
+  };
+  placeUrl: string;
+  // 백엔드에서 제공하는 추가 정보
+  reviewCount?: number;
+  ai_summary?: string; // AI 요약 정보
+  tags?: string[]; // 태그 정보
+}
+
+// Place API 요청 타입
+export interface PlaceRequest {
+  kakaoPlaceId: string;
+  name: string;
+  category: string;
+  categoryGroup: string;
+  phone: string;
+  address: string;
+  roadAddress: string;
+  location: {
+    lat: number;
+    lng: number;
+  };
+  placeUrl: string;
 }
 
 // 지도 중심점
@@ -103,30 +251,35 @@ export interface Restaurant {
   id: string;
   name: string;
   category: string;
-  rating: number;
-  price: string;
-  distance: string;
-  description?: string;
-  tags?: string[];
+  category_group_code?: string;
+  category_group_name?: string;
+  phone?: string;
+  address: string;
+  road_address?: string;
   location: {
     lat: number;
     lng: number;
-    address: string;
   };
+  place_url?: string;
+  distance?: string;
+  rating?: number;
+  price?: string;
+  description?: string;
+  tags?: string[];
   images?: string[];
-  phone?: string;
-  hours?: string;
   isFavorite?: boolean;
+  isCandidate?: boolean;
 }
 
 // 검색 요청 타입
 export interface SearchRequest {
-  query: string;
+  query?: string; // 키워드 검색 시에만 사용
   location?: string;
-  category?: string;
-  priceRange?: 'low' | 'medium' | 'high';
+  category?: CategoryFilter;
   radius?: number; // km
   limit?: number;
+  center?: MapCenter; // 지도 중심점
+  filter?: SearchFilter; // 검색 필터
 }
 
 // 검색 응답 타입
@@ -145,8 +298,6 @@ export interface RecommendRequest {
   location: string;
   preferences?: {
     categories?: string[];
-    priceRange?: 'low' | 'medium' | 'high';
-    rating?: number;
   };
   limit?: number;
 }
