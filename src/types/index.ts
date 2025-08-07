@@ -36,7 +36,21 @@ export interface UserProfile {
 export interface MapOverlayConfig {
   showDepartureSearch: boolean;
   departureLocation: string;
-  currentLocationButtonText: string;
+  currentLocationButtonText?: string;
+  showCurrentLocationButton?: boolean;
+}
+
+// MapOverlay props 인터페이스에 추가
+export interface MapOverlayProps {
+  users?: UserProfile[];
+  config?: MapOverlayConfig;
+  onDepartureSubmit?: (location: string) => void;
+  onDepartureCancel?: () => void;
+  onUserProfileClick?: (userId: string) => void;
+  // ✅ 새로 추가
+  onCurrentLocationSearch?: (center: MapCenter) => void;
+  showCurrentLocationButton?: boolean;
+  className?: string;
 }
 
 // 레스토랑 카드 클릭 핸들러

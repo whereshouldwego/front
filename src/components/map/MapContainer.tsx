@@ -15,15 +15,17 @@
  * - className: 추가 CSS 클래스
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Map, MapMarker } from 'react-kakao-maps-sdk';
-import type { MapEventHandlers, MapMarker as MapMarkerType } from '../../types';
+import type { MapMarker as MapMarkerType, MapEventHandlers, MapCenter } from '../../types';
 
 // MapContainer 컴포넌트 props 인터페이스
 interface MapContainerProps {
   markers?: MapMarkerType[];
   eventHandlers?: MapEventHandlers;
   className?: string;
+  onMapMoved?: (center: MapCenter) => void;
+  onMapIdle?: (center: MapCenter) => void;
 }
 
 // 기본 지도 설정 (역삼역 중심)
@@ -35,10 +37,14 @@ const defaultCenter = {
 const MapContainer: React.FC<MapContainerProps> = ({
   markers = [],
   eventHandlers,
-  className = ''
+  className = '',
+  onMapMoved,
+  onMapIdle
 }) => {
   const [isKakaoMapLoaded, setIsKakaoMapLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [currentCenter, setCurrentCenter] = useState<MapCenter>(defaultCenter);
+  const mapRef = useRef<any>(null);
 
   // 카카오맵 SDK 로드 확인
   useEffect(() => {
@@ -64,6 +70,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
 
     return () => clearTimeout(timer);
   }, []);
+
   // 지도 클릭 이벤트 핸들러
   const handleMapClick = (_map: any, mouseEvent: any) => {
     const latlng = mouseEvent.latLng;
@@ -73,10 +80,32 @@ const MapContainer: React.FC<MapContainerProps> = ({
   // 지도 드래그 종료 이벤트 핸들러
   const handleMapDragEnd = (map: any) => {
     const center = map.getCenter();
-    eventHandlers?.onMapDragEnd?.({
+    const newCenter: MapCenter = {
       lat: center.getLat(),
       lng: center.getLng()
-    });
+    };
+    
+    // 현재 중심점 업데이트
+    setCurrentCenter(newCenter);
+    
+    // 기존 이벤트 핸들러 호출
+    eventHandlers?.onMapDragEnd?.(newCenter);
+    
+    // 지도 이동 시 콜백 호출 (현위치 검색 버튼 표시용)
+    onMapMoved?.(newCenter);
+  };
+
+  // 지도 이동 완료 이벤트 핸들러
+  const handleMapIdle = (map: any) => {
+    const center = map.getCenter();
+    const newCenter: MapCenter = {
+      lat: center.getLat(),
+      lng: center.getLng()
+    };
+    
+    setCurrentCenter(newCenter);
+    // 지도 이동이 완료되었을 때 콜백 호출
+    onMapIdle?.(newCenter);
   };
 
   // 지도 줌 변경 이벤트 핸들러
@@ -89,6 +118,18 @@ const MapContainer: React.FC<MapContainerProps> = ({
   const handleMarkerClick = (markerId: string) => {
     eventHandlers?.onMarkerClick?.(markerId);
   };
+
+  // 현재 지도 중심점 반환 함수
+  const getCurrentCenter = (): MapCenter => {
+    return currentCenter;
+  };
+
+  // 외부에서 지도 중심점에 접근할 수 있도록 ref 설정
+  useEffect(() => {
+    if (mapRef.current) {
+      mapRef.current.getCurrentCenter = getCurrentCenter;
+    }
+  }, [currentCenter]);
 
   // 에러 상태 표시
   if (mapError) {
@@ -129,6 +170,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         level={3}
         onClick={handleMapClick}
         onDragEnd={handleMapDragEnd}
+        onIdle={handleMapIdle}
         onZoomChanged={handleMapZoomChanged}
       >
         {/* 마커들 렌더링 */}

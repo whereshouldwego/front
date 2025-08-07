@@ -6,7 +6,6 @@
  * - 지도 위 오버레이 요소들을 React 컴포넌트로 변환
  * - 사용자 프로필 배지들
  * - 출발지 검색 입력창
- * - 현위치 재검색 버튼
  * - 반응형 디자인 적용
  * 
  * 기존 CSS: src/backup/MapComponents.css
@@ -16,7 +15,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import type { MapOverlayConfig, UserProfile } from '../../types';
+import type { MapOverlayConfig, UserProfile, MapCenter } from '../../types';
 import styles from './MapOverlay.module.css';
 import { useWebSocket } from '../../stores/WebSocketContext';
 import { throttle } from '../../utils/search';
@@ -27,8 +26,9 @@ interface MapOverlayProps {
   config?: MapOverlayConfig;
   onDepartureSubmit?: (location: string) => void;
   onDepartureCancel?: () => void;
-  onCurrentLocationClick?: () => void;
   onUserProfileClick?: (userId: string) => void;
+  onCurrentLocationSearch?: (center: MapCenter) => void;
+  showCurrentLocationButton?: boolean;
   className?: string;
 }
 
@@ -65,7 +65,8 @@ const defaultUsers: UserProfile[] = [
 const defaultConfig: MapOverlayConfig = {
   showDepartureSearch: false,
   departureLocation: '',
-  currentLocationButtonText: '현 지도에서 검색'
+  currentLocationButtonText: '이 지역에서 검색',
+  showCurrentLocationButton: false,
 };
 
 const MapOverlay: React.FC<MapOverlayProps> = ({
@@ -73,8 +74,9 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
   config = defaultConfig,
   onDepartureSubmit,
   onDepartureCancel,
-  onCurrentLocationClick,
   onUserProfileClick,
+  onCurrentLocationSearch,
+  showCurrentLocationButton = false,
   className = ''
 }) => {
   const [showDepartureSearch, setShowDepartureSearch] = useState(config.showDepartureSearch);
@@ -116,8 +118,17 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
     onDepartureCancel?.();
   };
 
-  const handleCurrentLocationClick = () => {
-    onCurrentLocationClick?.();
+  const handleCurrentLocationSearch = () => {
+    // 지도의 현재 중심점을 가져와서 검색 실행
+    // 실제 구현에서는 MapContainer에서 현재 중심점을 전달받아야 함
+    if (onCurrentLocationSearch) {
+      // 임시로 역삼역 좌표 사용 (실제로는 지도 중심점을 전달받아야 함)
+      const currentCenter: MapCenter = {
+        lat: 37.5002,
+        lng: 127.0364
+      };
+      onCurrentLocationSearch(currentCenter);
+    }
   };
 
   const handleUserProfileClick = (userId: string) => {
@@ -160,18 +171,20 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
         </div>
       )}
 
-      {/* 현위치 재검색 버튼 - 화면 하단 중앙 */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 pointer-events-auto z-10">
-        <button 
-          className="bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 rounded-full px-6 py-3 shadow-lg transition-all duration-200 flex items-center gap-2 font-medium text-sm"
-          onClick={handleCurrentLocationClick}
-        >
-          <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-            <div className="w-2 h-2 bg-white rounded-full"></div>
-          </div>
-          <span>{config.currentLocationButtonText}</span>
-        </button>
-      </div>
+      {/* 이 지역에서 검색 버튼 (지도 하단 중앙) */}
+      {showCurrentLocationButton && (
+        <div className={styles.currentLocationContainer}>
+          <button 
+            className={styles.currentLocationBtn}
+            onClick={handleCurrentLocationSearch}
+          >
+            <div className={styles.locationIcon}>
+              📍
+            </div>
+            <span>{config.currentLocationButtonText}</span>
+          </button>
+        </div>
+      )}
 
       {/* 사용자 프로필 배지들 */}
       <div className={styles.userProfiles}>
