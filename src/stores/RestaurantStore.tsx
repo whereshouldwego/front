@@ -7,14 +7,14 @@ export const useRestaurantStore = create<RestaurantStore>()(
     persist(
       (set, get) => ({
         // 초기 상태
-        favorites: new Set(),
-        candidates: new Set(),
-        votedRestaurants: new Set(),
-        voteCounts: {},
+        favorites: new Set<string>(),
+        candidates: new Set<string>(),
+        votedRestaurants: new Set<string>(),
+        voteCounts: {} as Record<string, number>,
 
         // 액션들
         toggleFavorite: (restaurantId: string) => {
-          set((state) => {
+          set((state: RestaurantStore) => {
             const newFavorites = new Set(state.favorites);
             if (newFavorites.has(restaurantId)) {
               newFavorites.delete(restaurantId);
@@ -26,7 +26,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
         },
 
         toggleCandidate: (restaurantId: string) => {
-          set((state) => {
+          set((state: RestaurantStore) => {
             const newCandidates = new Set(state.candidates);
             if (newCandidates.has(restaurantId)) {
               newCandidates.delete(restaurantId);
@@ -38,7 +38,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
         },
 
         toggleVote: (restaurantId: string) => {
-          set((state) => {
+          set((state: RestaurantStore) => {
             const newVotedRestaurants = new Set(state.votedRestaurants);
             const newVoteCounts = { ...state.voteCounts };
             
@@ -89,10 +89,10 @@ export const useRestaurantStore = create<RestaurantStore>()(
 
         resetState: () => {
           set({
-            favorites: new Set(),
-            candidates: new Set(),
-            votedRestaurants: new Set(),
-            voteCounts: {}
+            favorites: new Set<string>(),
+            candidates: new Set<string>(),
+            votedRestaurants: new Set<string>(),
+            voteCounts: {} as Record<string, number>
           });
         }
       }),

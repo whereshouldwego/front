@@ -82,18 +82,6 @@ const FavoritePanel: React.FC = () => {
     getFavorites();
   }, []);
 
-  const handleUnfavorite = async (restaurantId: string) => {
-    try {
-      // 실제로는 API 호출을 통해 찜 해제 처리
-      console.log('찜 해제:', restaurantId);
-      
-      // 임시로 목록에서 제거
-      setFavorites(prev => prev.filter(favorite => favorite.id !== restaurantId));
-    } catch (err) {
-      console.error('찜 해제 중 오류:', err);
-    }
-  };
-
   return (
     <div className={styles.panelContent}>
       {/* 헤더 */}
@@ -134,13 +122,14 @@ const FavoritePanel: React.FC = () => {
                   <RestaurantCard
                     restaurant={restaurant}
                     className={styles.restaurantCard}
-                  />
-                  <ActionButtons
-                    restaurantId={restaurant.id}
-                    showFavoriteButton={true}
-                    onFavoriteClick={handleFavoriteClick}
-                    isFavorited={true}
-                  />
+                  >
+                    <ActionButtons
+                      restaurantId={restaurant.id}
+                      showFavoriteButton={true}
+                      onFavoriteClick={handleFavoriteClick}
+                      isFavorited={true}
+                    />
+                  </RestaurantCard>
                 </div>
               ))}
             </div>

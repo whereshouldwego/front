@@ -142,10 +142,16 @@ const CandidatePanel: React.FC = () => {
               {candidates.map((restaurant) => (
                 <div key={restaurant.id} className={styles.candidateItem}>
                   <RestaurantCard
-                    key={restaurant.id}
                     restaurant={restaurant}
                     className={styles.restaurantCard}
                   >
+                    <ActionButtons
+                      restaurantId={restaurant.id}
+                      showVoteButton={true}
+                      onVoteClick={handleVoteClick}
+                      isVoted={(votedRestaurants as Set<string>).has(restaurant.id)}
+                      voteCount={restaurant.voteCount || 0}
+                    />
                   </RestaurantCard>
                   <button
                     onClick={() => handleVote(restaurant.id)}

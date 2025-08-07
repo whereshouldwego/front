@@ -1,28 +1,30 @@
 /* RestaurantCard.module.css */
 
 .restaurantCard {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border: 1px solid #f0f0f0;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f1f3f4;
   padding: 12px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  min-height: 90px;
+  min-height: 60px;
+  position: relative;
+  overflow: hidden;
 }
 
 .restaurantCard:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   transform: translateY(-2px);
+  border-color: #e8eaed;
 }
 
-.content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.restaurantCard:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .header {
@@ -30,6 +32,8 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 8px;
+  position: relative;
+  padding-right: 80px; /* 버튼 공간 확보 */
 }
 
 .name {
@@ -39,32 +43,47 @@
   margin: 0;
   line-height: 1.2;
   flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .details {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
   font-size: 11px;
   color: #666;
 }
 
 .category {
-  background: #e9ecef;
+  font-size: 10px;
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 500;
+  margin: 0;
+  background: #e9ecef;
+  display: inline-block;
+  width: fit-content;
 }
 
 .address {
   color: #6c757d;
-  flex: 1;
+  margin: 0;
 }
 
 .phone {
   font-size: 11px;
   color: #495057;
-  margin-top: 2px;
+  margin: 0;
+}
+
+.distance {
+  color: #28a745;
+  font-weight: 500;
+  margin: 0;
+  display: block;
 }
 
 .placeUrl {
@@ -80,4 +99,94 @@
 
 .placeUrl a:hover {
   text-decoration: underline;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 0 0;
+}
+
+.tag {
+  color: #6c757d;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.tag::before {
+  content: "#";
+  color: #007bff;
+  font-weight: 600;
+}
+
+.actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  z-index: 10;
+}
+
+.actionButton {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #495057;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 20px;
+  height: 20px;
+  justify-content: center;
+}
+
+.actionButton:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.actionButton.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.actionButton:active {
+  transform: scale(0.95);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .restaurantCard {
+    padding: 10px;
+  }
+  
+  .header {
+    padding-right: 50px;
+  }
+  
+  .name {
+    font-size: 13px;
+  }
+  
+  .actions {
+    top: 6px;
+    right: 6px;
+    gap: 3px;
+  }
+  
+  .actionButton {
+    padding: 3px 6px;
+    font-size: 9px;
+    min-width: 18px;
+    height: 18px;
+  }
 }

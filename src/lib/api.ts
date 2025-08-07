@@ -29,7 +29,7 @@ const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_MAP_REST_API_KEY;
 // ===== 공통 API 요청 함수들 =====
 
 // 백엔드 API 요청 함수
-async function apiRequest<T extends { success: boolean }>(
+async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
@@ -53,7 +53,7 @@ async function apiRequest<T extends { success: boolean }>(
           message: data.message || 'API 요청 실패',
           details: data,
         },
-      } as ApiError;
+      };
     }
 
     return data;
@@ -65,7 +65,7 @@ async function apiRequest<T extends { success: boolean }>(
         message: '네트워크 오류가 발생했습니다.',
         details: error,
       },
-    } as ApiError;
+    };
   }
 }
 
@@ -240,8 +240,6 @@ const convertKakaoDocumentToRestaurant = (doc: any): Restaurant => {
     id: doc.id,
     name: doc.place_name,
     category: doc.category_name,
-    rating: 4.0, // 기본값 (실제로는 별도 API나 데이터베이스에서 가져와야 함)
-    price: '1-3만원', // 기본값
     distance: doc.distance ? `${(parseInt(doc.distance) / 1000).toFixed(1)}km` : '거리 정보 없음',
     description: '맛있는 맛집입니다.', // 기본값
     tags: [], // 기본값
@@ -441,17 +439,17 @@ export const locationAPI = {
 // ===== 유틸리티 함수들 =====
 
 // API 응답이 성공인지 확인
-export const isApiSuccess = <T extends { success: boolean }>(response: ApiResponse<T>): response is T => {
-  return 'success' in response && response.success === true;
+export const isApiSuccess = <T>(response: ApiResponse<T>): response is { success: true; data: T } => {
+  return response.success === true;
 };
 
 // API 에러인지 확인
-export const isApiError = <T extends { success: boolean }>(response: ApiResponse<T>): response is ApiError => {
-  return 'success' in response && response.success === false;
+export const isApiError = <T>(response: ApiResponse<T>): response is { success: false; error: ApiError } => {
+  return response.success === false;
 };
 
 // 에러 메시지 추출
-export const getErrorMessage = <T extends { success: boolean }>(response: ApiResponse<T>): string => {
+export const getErrorMessage = <T>(response: ApiResponse<T>): string => {
   if (isApiError(response)) {
     return response.error.message;
   }

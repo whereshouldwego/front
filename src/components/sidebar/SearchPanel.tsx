@@ -230,16 +230,17 @@ const SearchPanel: React.FC = () => {
                   <RestaurantCard
                     restaurant={restaurant}
                     className={styles.restaurantCard}
-                  />
-                  <ActionButtons
-                    restaurantId={restaurant.id}
-                    showFavoriteButton={true}
-                    showCandidateButton={true}
-                    onFavoriteClick={handleFavoriteClick}
-                    onCandidateClick={handleCandidateClick}
-                    isFavorited={(favorites as Set<string>).has(restaurant.id)}
-                    isCandidate={(candidates as Set<string>).has(restaurant.id)}
-                  />
+                  >
+                    <ActionButtons
+                      restaurantId={restaurant.id}
+                      showFavoriteButton={true}
+                      showCandidateButton={true}
+                      onFavoriteClick={handleFavoriteClick}
+                      onCandidateClick={handleCandidateClick}
+                      isFavorited={(favorites as Set<string>).has(restaurant.id)}
+                      isCandidate={(candidates as Set<string>).has(restaurant.id)}
+                    />
+                  </RestaurantCard>
                 </div>
               ))}
             </div>

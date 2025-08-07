@@ -325,6 +325,41 @@ export interface CandidateInfo {
   placeId: string;
 }
 
+// API 요청/응답 타입들
+export interface VoteRequest {
+  roomId: string;
+  userId: string;
+  placeId: string;
+}
+
+export interface VoteResponse {
+  success: boolean;
+  data: VoteInfo;
+  message?: string;
+}
+
+export interface FavoriteRequest {
+  userId: string;
+  placeId: string;
+}
+
+export interface FavoriteResponse {
+  success: boolean;
+  data: FavoriteInfo;
+  message?: string;
+}
+
+export interface RecommendRequest {
+  roomId: string;
+  placeId: string;
+}
+
+export interface RecommendResponse {
+  success: boolean;
+  data: RecommendationInfo;
+  message?: string;
+}
+
 // 채팅 요청 타입
 export interface ChatRequest {
   userId: string;
@@ -372,12 +407,9 @@ export interface LocationUpdateResponse {
 
 // API 에러 타입
 export interface ApiError {
-  success: false;
-  error: {
-    code: string;
-    message: string;
-    details?: any;
-  };
+  code: string;
+  message: string;
+  details?: any;
 }
 
 // API 응답 공통 타입
@@ -388,6 +420,25 @@ export type ApiResponse<T> = {
 };
 
 // ===== 상태 관리 타입들 =====
+
+// Restaurant Store 타입
+export interface RestaurantStore {
+  favorites: Set<string>;
+  candidates: Set<string>;
+  votedRestaurants: Set<string>;
+  voteCounts: Record<string, number>;
+  toggleFavorite: (restaurantId: string) => void;
+  toggleCandidate: (restaurantId: string) => void;
+  toggleVote: (restaurantId: string) => void;
+  isFavorited: (restaurantId: string) => boolean;
+  isCandidate: (restaurantId: string) => boolean;
+  isVoted: (restaurantId: string) => boolean;
+  getVoteCount: (restaurantId: string) => number;
+  getFavorites: () => string[];
+  getCandidates: () => string[];
+  getVotedRestaurants: () => string[];
+  resetState: () => void;
+}
 
 // 앱 전체 상태 타입
 export interface AppState {

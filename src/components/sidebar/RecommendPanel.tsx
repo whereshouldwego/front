@@ -13,12 +13,39 @@ import React, { useEffect, useState } from 'react';
 import { EMPTY_MESSAGES, LOADING_MESSAGES, PANEL_CONFIGS } from '../../constants/sidebar';
 import type { Restaurant } from '../../types';
 import RestaurantCard from '../ui/RestaurantCard';
+import ActionButtons from '../ui/ActionButtons';
 import styles from './SidebarPanels.module.css';
 
 const RecommendPanel: React.FC = () => {
   const [recommendations, setRecommendations] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<Set<string>>(new Set());
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  const handleCandidateClick = (restaurantId: string) => {
+    setCandidates(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(restaurantId)) {
+        newSet.delete(restaurantId);
+      } else {
+        newSet.add(restaurantId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleFavoriteClick = (restaurantId: string) => {
+    setFavorites(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(restaurantId)) {
+        newSet.delete(restaurantId);
+      } else {
+        newSet.add(restaurantId);
+      }
+      return newSet;
+    });
+  };
 
   // 컴포넌트 마운트 시 추천 데이터 가져오기
   useEffect(() => {
@@ -79,7 +106,7 @@ const RecommendPanel: React.FC = () => {
         ];
         
         // 로딩 시뮬레이션
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         setRecommendations(mockRecommendations);
       } catch (err) {
@@ -133,7 +160,7 @@ const RecommendPanel: React.FC = () => {
                   restaurant={restaurant}
                   className={styles.restaurantCard}
                 >
-                  {/* <ActionButtons
+                  <ActionButtons
                     restaurantId={restaurant.id}
                     showFavoriteButton={true}
                     showCandidateButton={true}
@@ -141,7 +168,7 @@ const RecommendPanel: React.FC = () => {
                     onCandidateClick={handleCandidateClick}
                     isFavorited={(favorites as Set<string>).has(restaurant.id)}
                     isCandidate={(candidates as Set<string>).has(restaurant.id)}
-                  /> */}
+                  />
                 </RestaurantCard>
               ))}
             </div>
