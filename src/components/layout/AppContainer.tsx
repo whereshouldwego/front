@@ -35,10 +35,13 @@ import ChatSection from '../chat/ChatSection';
 import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
 import { Sidebar } from '../sidebar';
-import InitialScreen from '../initial/InitialScreen';
+
+interface AppContainerProps {
+  roomId?: string; // 방 ID (선택적)
+}
 
 // 메인 콘텐츠 컴포넌트
-const MainContent: React.FC = () => {
+const MainContent: React.FC<{ roomId?: string }> = ({ roomId }) => {
   const { searchResults, recommendations, favorites, votes } = useSidebar();
   const { otherUsersCursors } = useWebSocket();
   
@@ -101,10 +104,12 @@ const MainContent: React.FC = () => {
   // 이벤트 핸들러들
   const handleAuroraToggle = (isActive: boolean) => {
     console.log('Aurora 버튼 상태:', isActive);
+    console.log('현재 방 ID:', roomId);
   };
 
   const handleDepartureSubmit = (location: string) => {
     console.log('출발지 설정:', location);
+    console.log('현재 방 ID:', roomId);
     // 사용자 위치 업데이트
     setUsers(prev => prev.map(user => 
       user.isCurrentUser 
@@ -115,20 +120,24 @@ const MainContent: React.FC = () => {
 
   const handleCurrentLocationClick = () => {
     console.log('현위치 재검색 클릭');
+    console.log('현재 방 ID:', roomId);
   };
 
   const handleUserProfileClick = (userId: string) => {
     console.log('사용자 프로필 클릭:', userId);
+    console.log('현재 방 ID:', roomId);
   };
 
   const handleRestaurantClick = (restaurantId: string) => {
     console.log('레스토랑 클릭:', restaurantId);
+    console.log('현재 방 ID:', roomId);
   };
 
   // 지도 이벤트 핸들러
   const mapEventHandlers: MapEventHandlers = {
     onMapClick: (lat: number, lng: number) => {
       console.log('지도 클릭:', lat, lng);
+      console.log('현재 방 ID:', roomId);
     },
     onMarkerClick: (markerId: string) => {
       console.log('마커 클릭:', markerId);
@@ -193,42 +202,19 @@ const MainContent: React.FC = () => {
 };
 
 // 앱 컨테이너 메인 컴포넌트
-const AppContainer: React.FC = () => {
-  // 앱 상태 관리
-  const [appState, setAppState] = useState<'initial' | 'main'>('initial');
-  const [userType, setUserType] = useState<'guest' | 'member' | null>(null);
-  const [userData, setUserData] = useState<any>(null);
-
-  // 앱 진입 핸들러
-  const handleEnterApp = (type: 'guest' | 'member', data?: any) => {
-    setUserType(type);
-    setUserData(data);
-    setAppState('main');
-    
-    console.log(`${type === 'guest' ? '비회원' : '회원'}으로 앱 진입:`, data);
-    console.log('현재 사용자 타입:', userType);
-    console.log('사용자 데이터:', userData);
-  };
-
+const AppContainer: React.FC<AppContainerProps> = ({ roomId }) => {
   return (
     <WebSocketProvider>
       <SidebarProvider>
         <ChatProvider>
           <div className="h-screen relative">
-            {/* 메인 앱 (배경으로 항상 표시) */}
+            {/* 메인 앱 */}
             <div className="absolute inset-0">
               <div id="sidebar-container">
                 <Sidebar />
               </div>
-              <MainContent />
+              <MainContent roomId={roomId} />
             </div>
-
-            {/* 초기 화면 오버레이 */}
-            {appState === 'initial' && (
-              <div className="absolute inset-0 z-50">
-                <InitialScreen onEnterApp={handleEnterApp} />
-              </div>
-            )}
           </div>
         </ChatProvider>
       </SidebarProvider>
