@@ -10,7 +10,6 @@
  * - 지도와 오버레이 통합
  *
  * 구조:
- * - 라우터 설정 (초기화면, 방 페이지, 404)
  * - 사이드바 (왼쪽)
  * - 메인 콘텐츠 영역 (지도 + 오버레이)
  * - 채팅 섹션 (오른쪽)
@@ -22,21 +21,22 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ChatProvider } from '../../stores/ChatContext';
-import { SidebarProvider } from '../../stores/SidebarContext';
+import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
 import { WebSocketProvider, useWebSocket } from '../../stores/WebSocketContext';
-import type { MapEventHandlers, MapMarker, MapOverlayConfig, UserProfile } from '../../types';
-import InitialScreen from '../initial/InitialScreen';
+import { restaurantData } from '../../data/restaurantData';
+import type { MapEventHandlers, MapMarker, UserProfile } from '../../types';
+import ChatSection from '../chat/ChatSection';
 import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
-import RoomPage from '../room/RoomPage';
 import { Sidebar } from '../sidebar';
-import styles from './AppContainer.module.css';
-
+import InitialScreen from '../initial/InitialScreen';
+import RoomPage from '../room/RoomPage';
 
 // 메인 서비스 컴포넌트 (기존 MainContent)
 const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
+  const { searchResults, recommendations, favorites, votes } = useSidebar();
   const { otherUsersCursors } = useWebSocket();
   
   // 동적 사용자 프로필 예시
@@ -70,34 +70,31 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
 
   // 현재 활성 패널에 따른 마커 데이터 생성
   const mapMarkers = useMemo((): MapMarker[] => {
-    return [
-      {
-        id: 'default1',
-        position: {
-          lat: 37.5002,
-          lng: 127.0364
-        },
-        title: '기본 위치',
-        category: '기본',
-        restaurant: {
-          id: 'default1',
-          name: '기본 위치',
-          category: '기본',
-          distance: '0m',
-          description: '기본 위치',
-          tags: ['기본'],
-          location: {
-            lat: 37.5002,
-            lng: 127.0364,
-            address: '서울 강남구'
-          },
-          phone: '',
-          isFavorite: false,
-          isCandidate: false
-        }
-      }
-    ];
-  }, []);
+    let restaurants = restaurantData.search || [];
+    
+    // 활성 패널에 따른 데이터 선택
+    if (searchResults.length > 0) {
+      restaurants = searchResults;
+    } else if (recommendations.length > 0) {
+      restaurants = recommendations;
+    } else if (favorites.length > 0) {
+      restaurants = favorites;
+    } else if (votes.length > 0) {
+      restaurants = votes;
+    }
+
+    return restaurants.map(restaurant => ({
+      id: restaurant.id,
+      position: {
+        lat: restaurant.location.lat,
+        lng: restaurant.location.lng
+      },
+      title: restaurant.name,
+      category: restaurant.category,
+      restaurant: restaurant
+    }));
+  }, [searchResults, recommendations, favorites, votes]);
+
 
   // 이벤트 핸들러들
   const handleAuroraToggle = (isActive: boolean) => {
@@ -149,39 +146,61 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
     }
   };
 
-  // 지도 오버레이 설정
-  const mapOverlayConfig: MapOverlayConfig = {
-    showDepartureSearch: false,
-    departureLocation: '',
-    currentLocationButtonText: '현 지도에서 검색'
-  };
-
   return (
-    <div className={styles.mainContent}>
-      {/* 지도 컨테이너 */}
+    <div 
+      className="bg-gray-100 relative overflow-hidden"
+      id="main-content"
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh'
+      }}
+    >
       <MapContainer
         markers={mapMarkers}
         eventHandlers={mapEventHandlers}
-        className={styles.mapContainer}
       />
-      
-      {/* 지도 오버레이 */}
       <MapOverlay
-        config={mapOverlayConfig}
-        onDepartureSearch={handleDepartureSubmit}
-        onCurrentLocation={handleCurrentLocationClick}
-        className={styles.mapOverlay}
+        users={users}
+        onDepartureSubmit={handleDepartureSubmit}
+        onCurrentLocationClick={handleCurrentLocationClick}
+        onUserProfileClick={handleUserProfileClick}
       />
+      <ChatSection
+        onAuroraToggle={handleAuroraToggle}
+      />
+
+      {/* 다른 사용자 커서 렌더링 */}
+      {[...otherUsersCursors.entries()].map(([userId, cursor]) => (
+        <div
+          key={userId}
+          style={{
+            position: 'absolute',
+            left: cursor.x,
+            top: cursor.y,
+            width: '20px',
+            height: '20px',
+            backgroundColor: 'red',
+            borderRadius: '50%',
+            pointerEvents: 'none',
+            zIndex: 9999,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      ))}
     </div>
   );
 };
 
+
 // 앱 컨테이너 컴포넌트
 const MainPage: React.FC = () => {
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
-
   const handleSidebarExpandedChange = (expanded: boolean) => {
-    setIsSidebarExpanded(expanded);
+    console.log('Sidebar expanded:', expanded);
   };
 
   return (
@@ -194,9 +213,9 @@ const MainPage: React.FC = () => {
               <div className="h-screen relative">
                 <div className="absolute inset-0">
                   <div id="sidebar-container">
-                    <Sidebar 
-                      onExpandedChange={handleSidebarExpandedChange}
-                    />
+                  <Sidebar 
+                    onExpandedChange={handleSidebarExpandedChange}
+                  />
                   </div>
                   <MainService roomId="DEMO01" />
                 </div>

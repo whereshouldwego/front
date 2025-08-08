@@ -360,6 +360,18 @@ export interface RecommendResponse {
   message?: string;
 }
 
+export interface CandidateInfo {
+  candidateId: string;
+  roomId: string;
+  placeId: string;
+}
+
+export interface CandidateResponse {
+  success: boolean;
+  data: CandidateInfo;
+  message?: string;
+}
+
 // 채팅 요청 타입
 export interface ChatRequest {
   userId: string;
