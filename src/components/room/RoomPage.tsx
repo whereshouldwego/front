@@ -9,7 +9,7 @@
  * - 현위치 검색 기능
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { WebSocketProvider } from '../../stores/WebSocketContext';
 import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
@@ -38,6 +38,10 @@ const RoomPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 중복 실행 방지를 위한 ref
+  const isLoadingRef = useRef(false);
+  const loadedRoomId = useRef<string | null>(null);
+
   // roomCode 또는 roomId 사용 (호환성)
   const currentRoomId = roomCode || roomId;
 
@@ -47,80 +51,176 @@ const RoomPage: React.FC = () => {
       return;
     }
 
-    // 방 정보 로드
-    loadRoomData(currentRoomId);
-  }, [currentRoomId, navigate]);
+  // 이미 같은 방을 로딩 중이거나 로딩 완료된 경우 중복 실행 방지
+    if (isLoadingRef.current || loadedRoomId.current === currentRoomId) {
+      return;
+    }
+
+  // 방 정보 로드
+  loadRoomData(currentRoomId);
+}, [currentRoomId, navigate]);
 
   const loadRoomData = async (id: string) => {
+    if (isLoadingRef.current) {
+      console.log('이미 로딩 중입니다. 중복 실행 방지');
+      return;
+    }
+
+    isLoadingRef.current = true;
+
     try {
       setLoading(true);
       setError(null);
 
       console.log(`방 정보 로드 시작: ${id}`);
       
-      // 실제 서버 API 구현 - 주석 해제 및 수정
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}`, {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        // 인증 토큰 포함
-        ...(localStorage.getItem('accessToken') && {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        })
-      }
-    });
+      // 기존 사용자 토큰 확인
+      const existingToken = localStorage.getItem('accessToken');
+      const existingUserId = localStorage.getItem('userId');
+      
+      // 2단계: 사용자 인증 확인 및 새 사용자 생성
+      let userToken = existingToken;
+      let userId = existingUserId;
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error('존재하지 않는 방입니다.');
-      } else if (response.status === 403) {
-        throw new Error('방에 접근할 권한이 없습니다.');
+      // 토큰이 없는 경우에만 새 사용자 생성
+      if (!userToken) {
+        console.log('새 사용자 생성 중...');
+        
+        const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/guest?roomCode=${id}`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+
+        if (!userResponse.ok) {
+          throw new Error('사용자 생성에 실패했습니다.');
+        }
+
+        const userData = await userResponse.json();
+        
+        // 새 사용자 정보 저장
+        userToken = userData.accessToken;
+        userId = userData.userId;
+        
+        // null 체크 후 localStorage에 저장
+        if (userToken && userId) {
+          localStorage.setItem('accessToken', userToken);
+          localStorage.setItem('userId', userId);
+          localStorage.setItem('userNickname', userData.nickname || '');
+          localStorage.setItem('userType', 'guest');
+          
+          console.log('새 사용자 생성 완료:', {
+            userId: userId,
+            nickname: userData.nickname,
+            roomCode: id
+          });
+        } else {
+          throw new Error('사용자 정보가 올바르지 않습니다.');
+        }
+      }
+
+      // 3단계: 인증된 사용자로 방 정보 조회 (방 존재 여부 확인 포함)
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${userToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('존재하지 않는 방입니다.');
+        } else if (response.status === 403) {
+          // 권한이 없는 경우, 방에 참가 요청
+          console.log('방 참가 요청 중...');
+          
+          const joinResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}/join`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${userToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (!joinResponse.ok) {
+            throw new Error('방에 참가할 수 없습니다.');
+          }
+
+          // 참가 성공 후 다시 방 정보 조회
+          const finalResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${userToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (!finalResponse.ok) {
+            throw new Error('방 정보를 불러올 수 없습니다.');
+          }
+
+          const data = await finalResponse.json();
+          const roomInfo: RoomData = {
+            id: data.roomCode || id,
+            name: data.name || `방 ${data.roomCode || id}`,
+            participants: data.participants || [],
+            createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
+            isValid: true
+          };
+
+          setRoomData(roomInfo);
+          loadedRoomId.current = id; // 로딩 완료된 방 ID 저장
+          console.log('방 참가 및 정보 로드 성공:', roomInfo);
+          
+        } else {
+          throw new Error(`방을 불러올 수 없습니다. (${response.status})`);
+        }
       } else {
-        throw new Error(`방을 불러올 수 없습니다. (${response.status})`);
+        // 기존 사용자 또는 새 사용자 - 바로 방 정보 로드
+        const data = await response.json();
+        const roomInfo: RoomData = {
+          id: data.roomCode || id,
+          name: data.name || `방 ${data.roomCode || id}`,
+          participants: data.participants || [],
+          createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
+          isValid: true
+        };
+
+        setRoomData(roomInfo);
+        loadedRoomId.current = id; // 로딩 완료된 방 ID 저장
+        console.log('방 정보 로드 성공:', roomInfo);
       }
-    }
-
-    const data = await response.json();
-    console.log('백엔드 응답:', data);
-
-    // 백엔드 응답을 RoomData 형태로 변환
-    const roomInfo: RoomData = {
-      id: data.roomCode || id,
-      name: data.name || `방 ${data.roomCode || id}`,
-      participants: data.participants || [],
-      createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
-      isValid: true
-    };
-
-    setRoomData(roomInfo);
-    console.log('방 정보 로드 성공:', roomInfo);
 
     } catch (error) {
-    console.error('방 정보 로드 실패:', error);
-    
-    if (error instanceof Error) {
-      setError(error.message);
+      console.error('방 정보 로드 실패:', error);
       
-      // 특정 에러에 따른 처리
-      if (error.message.includes('존재하지 않는 방')) {
-        setTimeout(() => {
-          alert('존재하지 않는 방입니다. 홈으로 이동합니다.');
-          navigate('/');
-        }, 2000);
-      } else if (error.message.includes('권한이 없습니다')) {
-        setTimeout(() => {
-          alert('방에 접근할 권한이 없습니다. 홈으로 이동합니다.');
-          navigate('/');
-        }, 2000);
+      if (error instanceof Error) {
+        setError(error.message);
+        
+        // 특정 에러에 따른 처리
+        if (error.message.includes('존재하지 않는 방')) {
+          setTimeout(() => {
+            alert('존재하지 않는 방입니다. 홈으로 이동합니다.');
+            navigate('/');
+          }, 2000);
+        } else if (error.message.includes('권한이 없습니다') || error.message.includes('참가할 수 없습니다')) {
+          setTimeout(() => {
+            alert('방에 접근할 수 없습니다. 홈으로 이동합니다.');
+            navigate('/');
+          }, 2000);
+        }
+      } else {
+        setError('알 수 없는 오류가 발생했습니다.');
       }
-    } else {
-      setError('알 수 없는 오류가 발생했습니다.');
-    }
 
-  } finally {
-    setLoading(false);
-  }
-};
+    } finally {
+      setLoading(false);
+      isLoadingRef.current = false; // 로딩 상태 해제
+    }
+  };
 
   // 바로 링크 복사 - 간소화된 공유 기능
   const handleShareRoom = async () => {
