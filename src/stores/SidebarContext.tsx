@@ -6,8 +6,9 @@
  * - 사이드바 열림/닫힘 상태 관리
  */
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { SidebarButtonType, Restaurant } from '../types';
+import React, { createContext, useCallback, useContext, useState } from 'react';
+import type { Restaurant, SidebarButtonType } from '../types';
+import { integratedSearchAPI } from '../lib/api';
 
 interface SidebarContextType {
   activePanel: SidebarButtonType;
@@ -20,6 +21,7 @@ interface SidebarContextType {
   toggleSidebar: () => void;
   openSidebar: () => void;
   closeSidebar: () => void;
+  performSearch: (params: { query: string; location?: string; category?: string; limit?: number }) => Promise<void>;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
@@ -39,7 +41,7 @@ interface SidebarProviderProps {
 export const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) => {
   const [activePanel, setActivePanelState] = useState<SidebarButtonType>('search');
   const [isOpen, setIsOpen] = useState(true);
-  const [searchResults] = useState<Restaurant[]>([]);
+  const [searchResults, setSearchResults] = useState<Restaurant[]>([]);
   const [recommendations] = useState<Restaurant[]>([]);
   const [favorites] = useState<Restaurant[]>([]);
   const [votes] = useState<Restaurant[]>([]);
@@ -60,6 +62,54 @@ export const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) =>
     setIsOpen(false);
   }, []);
 
+  const performSearch = useCallback(async (params: { 
+    query: string; 
+    location?: string; 
+    category?: string; 
+    limit?: number 
+  }) => {
+    try {
+      let restaurants: Restaurant[] = [];
+      
+      if (params.query.trim()) {
+        // 키워드 검색
+        const center = params.location ? {
+          lat: parseFloat(params.location.split(',')[0]),
+          lng: parseFloat(params.location.split(',')[1])
+        } : undefined;
+        
+        restaurants = await integratedSearchAPI.searchAndEnrich(
+          params.query,
+          center,
+          { radius: 5, sort: 'accuracy' }
+        );
+      } else if (params.location) {
+        // 위치 기반 검색
+        const center = {
+          lat: parseFloat(params.location.split(',')[0]),
+          lng: parseFloat(params.location.split(',')[1])
+        };
+        
+        restaurants = await integratedSearchAPI.searchByLocation(
+          center,
+          { radius: 3, sort: 'distance' }
+        );
+      }
+      
+      // 결과 수 제한
+      if (params.limit) {
+        restaurants = restaurants.slice(0, params.limit);
+      }
+      
+      setSearchResults(restaurants);
+      console.log('검색 완료:', restaurants.length, '개 결과');
+      
+    } catch (error) {
+      console.error('검색 실패:', error);
+      setSearchResults([]);
+    }
+  }, []);
+
   const value: SidebarContextType = {
     activePanel,
     isOpen,
@@ -71,6 +121,7 @@ export const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) =>
     toggleSidebar,
     openSidebar,
     closeSidebar,
+    performSearch,
   };
 
   return (

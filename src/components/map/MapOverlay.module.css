@@ -1,12 +1,25 @@
-/* MapOverlay.module.css */
+/**
+ * 지도 오버레이 컴포넌트 전체 스타일
+ *
+ * 기능:
+ * - 상단 출발지 검색 입력창 스타일링
+ * - 사용자 프로필 배지 스타일링
+ * - 현위치 검색 버튼 스타일링
+ * - 다른 사용자 커서 스타일링
+ * - 반응형 디자인 적용
+ * - 접근성 및 다크모드 지원
+ */
 
-/* 복잡한 애니메이션과 특수 스타일들 */
+/* =========================
+   상단 출발지 검색 컨테이너
+   ========================= */
+
 .topSearchContainer {
   position: fixed;
-  top: 14px; /* 20px * 0.7 */
+  top: 14px; /* 20px * 0.7 - 기존 비율 유지 */
   left: 50%;
   transform: translateX(-50%);
-  background: #fff;
+  background: #ffffff;
   border-radius: 8px; /* 12px * 0.7 */
   padding: 11px; /* 16px * 0.7 */
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.15); /* 4px 20px * 0.7 */
@@ -21,7 +34,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: #fff;
+  background: #ffffff;
   border-radius: 8px; /* 12px * 0.7 */
   padding: 11px; /* 16px * 0.7 */
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.15); /* 4px 20px * 0.7 */
@@ -31,49 +44,9 @@
   max-width: 280px; /* 400px * 0.7 */
 }
 
-.currentLocationBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px; /* 8px * 0.7 */
-  background: #0066cc;
-  color: #fff;
-  border: none;
-  border-radius: 15px; /* 22px * 0.7 */
-  padding: 8px 14px; /* 12px 20px * 0.7 */
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 3px 8px rgba(0, 102, 204, 0.3); /* 4px 12px * 0.7 */
-  font-family: 'Inter', sans-serif;
-  font-weight: 600;
-  font-size: 14px; /* 20px * 0.7 */
-}
-
-.currentLocationBtn:hover {
-  background: #0052a3;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 11px rgba(0, 102, 204, 0.4); /* 6px 16px * 0.7 */
-  transition: all 0.3s ease-out;
-}
-
-.locationIcon {
-  width: 14px; /* 20px * 0.7 */
-  height: 14px; /* 20px * 0.7 */
-  background: #fff;
-  border-radius: 50%;
-  position: relative;
-}
-
-.locationIcon::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 6px; /* 8px * 0.7 */
-  height: 6px; /* 8px * 0.7 */
-  background: #0066cc;
-  border-radius: 50%;
-}
+/* =========================
+   사용자 프로필 배지들
+   ========================= */
 
 .userProfiles {
   position: fixed;
@@ -97,11 +70,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-weight: 600;
   font-size: 13px; /* 18px * 0.7 */
   color: #1a1a1a;
-  border: 1px solid #fff; /* 2px * 0.7 */
+  border: 1px solid #ffffff; /* 2px * 0.7 */
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1); /* 2px 8px * 0.7 */
   transition: all 0.2s ease;
 }
@@ -112,6 +85,7 @@
   transition: all 0.3s ease-out;
 }
 
+/* 개별 사용자 아바타 색상 */
 .meAvatar {
   background: #FF6B6B;
 }
@@ -128,12 +102,13 @@
   background: #96CEB4;
 }
 
+/* 프로필 툴팁 */
 .profileTooltip {
   position: absolute;
   top: 100%;
   right: 0;
   margin-top: 6px; /* 8px * 0.7 */
-  background: #fff;
+  background: #ffffff;
   border-radius: 6px; /* 8px * 0.7 */
   padding: 8px; /* 12px * 0.7 */
   box-shadow: 0 3px 11px rgba(0, 0, 0, 0.15); /* 4px 16px * 0.7 */
@@ -153,9 +128,10 @@
   transform: translateY(0);
 }
 
+/* 출발지 설정 버튼 */
 .setDepartureBtn {
   background: #0066cc;
-  color: #fff;
+  color: #ffffff;
   border: none;
   border-radius: 3px; /* 4px * 0.7 */
   padding: 4px 8px; /* 6px 12px * 0.7 */
@@ -168,14 +144,184 @@
   background: #0052a3;
 }
 
-/* 반응형 디자인 */
+/* =========================
+   현위치 검색 버튼 스타일
+   ========================= */
+
+/* 현위치 검색 버튼 컨테이너 */
+.currentLocationContainer {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  z-index: 1000;
+  
+  /* 부드러운 등장 애니메이션 */
+  animation: slideUpFadeIn 0.4s ease-out;
+}
+
+/* 현위치 검색 버튼 */
+.currentLocationBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* 10px → 6px */
+  
+  /* 버튼 기본 스타일 */
+  background: #ffffff;
+  color: #2563eb; /* #1f2937 → #2563eb (파란색) */
+  border: 1px solid #dbeafe; /* #e5e7eb → #dbeafe (연한 파란색 테두리) */
+  border-radius: 18px; /* 25px → 18px */
+  padding: 8px 16px; /* 14px 24px → 8px 16px */
+  
+  /* 폰트 */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 500; /* 600 → 500 */
+  font-size: 12px; /* 15px → 12px */
+  line-height: 1;
+  
+  /* 인터랙션 */
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  
+  /* 그림자 및 효과 */
+  box-shadow: 0 3px 12px rgba(37, 99, 235, 0.1); /* 파란색 그림자 */
+  backdrop-filter: blur(10px);
+  
+  /* 트랜지션 */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 버튼 호버 효과 */
+.currentLocationBtn:hover {
+  background: #eff6ff; /* 연한 파란색 배경 */
+  border-color: #3b82f6; /* 더 진한 파란색 테두리 */
+  color: #1d4ed8; /* 더 진한 파란색 텍스트 */
+  transform: translateY(-1px); /* -2px → -1px */
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.15); /* 파란색 그림자 강화 */
+}
+
+/* 버튼 클릭 효과 */
+.currentLocationBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  transition: all 0.15s ease;
+}
+
+/* 버튼 포커스 효과 (접근성)*/
+.currentLocationBtn:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 3px 12px rgba(37, 99, 235, 0.1), 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* 위치 아이콘 스타일 */
+.locationIcon {
+  font-size: 14px; /* 18px → 14px */
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(37, 99, 235, 0.1)); /* 파란색 그림자 */
+}
+
+/* 버튼 등장 애니메이션 */
+@keyframes slideUpFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* 버튼 사라짐 애니메이션 (옵션) */
+.currentLocationContainer.hiding {
+  animation: slideDownFadeOut 0.3s ease-in forwards;
+}
+
+@keyframes slideDownFadeOut {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+}
+
+/* =========================
+   다른 사용자 커서 스타일
+   ========================= */
+
+.otherCursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  transform-origin: top left;
+  transition: transform 0.1s ease-out;
+}
+
+.cursorDot {
+  width: 10px;
+  height: 10px;
+  background-color: #ef4444; /* 빨간색 커서 */
+  border-radius: 50%;
+  border: 1px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.cursorLabel {
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  margin-left: 5px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* =========================
+   반응형 디자인
+   ========================= */
+
+/* 대형 화면 (1200px 이하) */
 @media (max-width: 1200px) {
   .userProfiles {
     right: 224px; /* 320px * 0.7 */
   }
+
+  .currentLocationContainer {
+    bottom: 25px;
+    left: 15px;
+    right: 15px;
+    transform: none;
+  }
+  
+  .currentLocationBtn {
+    width: auto; /* 100% → auto */
+    justify-content: center;
+    padding: 10px 18px; /* 16px 24px → 10px 18px */
+    font-size: 13px; /* 16px → 13px */
+    border-radius: 16px; /* 20px → 16px */
+    margin: 0 auto; /* 중앙 정렬 */
+    display: flex;
+  }
+  
+  .locationIcon {
+    font-size: 15px;
+  }
 }
 
+/* 태블릿 (768px 이하) */
 @media (max-width: 768px) {
+  /* 상단 검색창 조정 */
   .topSearchContainer {
     top: 7px; /* 10px * 0.7 */
     left: 7px; /* 10px * 0.7 */
@@ -196,6 +342,7 @@
     padding: 8px; /* 12px * 0.7 */
   }
   
+  /* 프로필 배지 조정 */
   .userProfiles {
     position: absolute;
     top: 7px; /* 10px * 0.7 */
@@ -210,38 +357,201 @@
     font-size: 10px; /* 14px * 0.7 */
   }
   
+  /* 현위치 검색 버튼 조정 */
+  .currentLocationContainer {
+    bottom: 20px;
+    left: 15px;
+    right: 15px;
+  }
+  
   .currentLocationBtn {
-    padding: 7px 11px; /* 10px 16px * 0.7 */
-    font-size: 11px; /* 16px * 0.7 */
+    width: auto;
+    padding: 9px 16px; 
+    font-size: 12px; 
+    border-radius: 16px; 
+    gap: 5px;
+    margin: 0 auto;
+    display: flex;
+  }
+  
+  .locationIcon {
+    font-size: 14px;
   }
 }
 
-/* 다른 사용자 커서 스타일 */
-.otherCursor {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  transform-origin: top left;
+/* 모바일 (480px 이하) */
+@media (max-width: 480px) {
+  /* 프로필 아바타 더 작게 */
+  .profileAvatar {
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
+    border-width: 0.5px;
+  }
+  
+  .profileTooltip {
+    min-width: 120px;
+    padding: 6px;
+    font-size: 7px;
+  }
+  
+  .setDepartureBtn {
+    padding: 3px 6px;
+    font-size: 7px;
+  }
+  
+  /* 현위치 검색 버튼 모바일 최적화 */
+  .currentLocationBtn {
+    padding: 8px 14px;
+    font-size: 11px;
+    border-radius: 14px;
+    gap: 4px;
+  }
+  
+  .locationIcon {
+    font-size: 16px;
+  }
+  
+  /* 커서 관련 조정 */
+  .cursorDot {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .cursorLabel {
+    font-size: 8px;
+    padding: 1px 4px;
+    margin-left: 3px;
+  }
 }
 
-.cursorDot {
-  width: 10px;
-  height: 10px;
-  background-color: #FF0000; /* 빨간색 커서 */
-  border-radius: 50%;
-  border: 1px solid #FFFFFF;
+/* 초소형 화면 (360px 이하 - Galaxy Fold 등) */
+@media (max-width: 360px) {
+  .currentLocationBtn {
+    padding: 10px 14px;
+    font-size: 13px;
+    gap: 5px;
+  }
+  
+  .locationIcon {
+    font-size: 14px;
+  }
+  
+  .profileAvatar {
+    width: 16px;
+    height: 16px;
+    font-size: 8px;
+  }
 }
 
-.cursorLabel {
-  background-color: rgba(0, 0, 0, 0.7);
-  color: #FFFFFF;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  margin-left: 5px;
-  white-space: nowrap;
-} 
+/* =========================
+   다크 모드 지원
+   ========================= */
+
+@media (prefers-color-scheme: dark) {
+  .topSearchContainer,
+  .modalSearchContainer {
+    background: rgba(31, 41, 55, 0.95);
+    border: 1px solid #374151;
+  }
+  
+  .currentLocationBtn {
+    background: rgba(30, 41, 59, 0.9); 
+    color: #60a5fa; 
+    border-color: #1e40af; 
+  }
+  
+  .currentLocationBtn:hover {
+    background: rgba(51, 65, 85, 0.9);
+    border-color: #3b82f6;
+    color: #93c5fd; 
+  }
+  
+  .profileTooltip {
+    background: rgba(31, 41, 55, 0.95);
+    color: #f9fafb;
+    border: 1px solid #374151;
+  }
+  
+  .setDepartureBtn {
+    background: #1e40af;
+  }
+  
+  .setDepartureBtn:hover {
+    background: #1d4ed8;
+  }
+  
+  .cursorLabel {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #1f2937;
+  }
+}
+
+/* =========================
+   접근성 개선
+   ========================= */
+
+/* 운동감소 설정 사용자를 위한 애니메이션 비활성화 */
+@media (prefers-reduced-motion: reduce) {
+  .currentLocationContainer {
+    animation: none;
+  }
+  
+  .currentLocationBtn {
+    transition: none;
+  }
+  
+  .profileAvatar {
+    transition: none;
+  }
+  
+  .profileTooltip {
+    transition: none;
+  }
+  
+  .otherCursor {
+    transition: none;
+  }
+}
+
+/* 고대비 모드 지원 */
+@media (prefers-contrast: high) {
+  .currentLocationBtn {
+    border-width: 2px;
+    border-color: #1d4ed8;
+    color: #1d4ed8; 
+  }
+  
+  .currentLocationBtn:hover {
+    background: #1d4ed8;
+    color: #ffffff;
+  }
+  
+  .profileAvatar {
+    border-width: 2px;
+    border-color: #000000;
+  }
+  
+  .cursorDot {
+    border-width: 2px;
+    border-color: #000000;
+  }
+}
+
+/* =========================
+   고해상도 디스플레이 최적화
+   ========================= */
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .currentLocationBtn {
+    border-width: 0.5px;
+  }
+  
+  .profileAvatar {
+    border-width: 1.5px;
+  }
+  
+  .cursorDot {
+    border-width: 1.5px;
+  }
+}

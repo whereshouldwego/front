@@ -7,7 +7,8 @@
  * - 전체 앱 라우팅 관리
  * - 전체 앱 레이아웃 관리
  * - 사이드바와 메인 콘텐츠 영역 구성
- * - 지도와 오버레이 통합
+ * - 지도와 채팅 섹션 통합
+ * - 사용자 프로필 및 위치 관리
  *
  * 구조:
  * - 사이드바 (왼쪽)
@@ -17,27 +18,36 @@
  * 상태 관리:
  * - 사용자 프로필 정보
  * - 지도 마커 데이터
+ * - 현위치 검색 버튼 표시 상태
  * - 이벤트 핸들러들
  */
 
 import React, { useMemo, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import { restaurantData } from '../../data/restaurantData';
 import { ChatProvider } from '../../stores/ChatContext';
 import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
 import { WebSocketProvider, useWebSocket } from '../../stores/WebSocketContext';
-import { restaurantData } from '../../data/restaurantData';
-import type { MapEventHandlers, MapMarker, UserProfile } from '../../types';
+import type { MapCenter, MapEventHandlers, MapMarker, UserProfile } from '../../types';
 import ChatSection from '../chat/ChatSection';
+import InitialScreen from '../initial/InitialScreen';
 import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
-import { Sidebar } from '../sidebar';
-import InitialScreen from '../initial/InitialScreen';
 import RoomPage from '../room/RoomPage';
+import { Sidebar } from '../sidebar';
 
 // 메인 서비스 컴포넌트 (기존 MainContent)
 const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
-  const { searchResults, recommendations, favorites, votes } = useSidebar();
+  const { searchResults, recommendations, favorites, votes, performSearch } = useSidebar();
   const { otherUsersCursors } = useWebSocket();
+  
+  // 현위치 검색 버튼 표시 상태
+  const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
+  const [lastSearchCenter, setLastSearchCenter] = useState<MapCenter | null>(null);
+  const [currentMapCenter, setCurrentMapCenter] = useState<MapCenter>({
+    lat: 37.5002,
+    lng: 127.0364
+  });
   
   // 동적 사용자 프로필 예시
   const [users, setUsers] = useState<UserProfile[]>([
@@ -113,19 +123,56 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
     ));
   };
 
-  const handleCurrentLocationClick = () => {
-    console.log('현위치 재검색 클릭');
-    console.log('현재 방 ID:', roomId);
-  };
-
   const handleUserProfileClick = (userId: string) => {
     console.log('사용자 프로필 클릭:', userId);
     console.log('현재 방 ID:', roomId);
   };
 
-  const handleRestaurantClick = (restaurantId: string) => {
-    console.log('레스토랑 클릭:', restaurantId);
-    console.log('현재 방 ID:', roomId);
+
+  // 지도 이동 시 버튼 표시 로직
+  const handleMapMoved = (center: MapCenter) => {
+    console.log('지도 이동:', center);
+    setCurrentMapCenter(center);
+    
+    // 지도가 이동했고, 이전 검색 위치와 충분히 다르면 버튼 표시
+    const threshold = 0.001; // 약 100m 정도의 거리
+    
+    if (!lastSearchCenter || 
+        Math.abs(center.lat - lastSearchCenter.lat) > threshold || 
+        Math.abs(center.lng - lastSearchCenter.lng) > threshold) {
+      setShowCurrentLocationButton(true);
+    }
+  };
+
+  // 현위치 검색 실행
+  const handleCurrentLocationSearch = async (center: MapCenter) => {
+    console.log('현위치 검색 실행:', center, '방 ID:', roomId);
+    
+    try {
+      // 검색 실행 - 현재 지도 중심점 기반으로 검색
+      await performSearch({
+        query: '', // 빈 쿼리로 위치 기반 검색
+        location: `${center.lat},${center.lng}`, // 위도,경도 형태로 전달
+        category: '', // 모든 카테고리
+        limit: 20 // 충분한 결과 수
+      });
+      
+      // 검색 완료 후 버튼 숨기기 및 위치 저장
+      setShowCurrentLocationButton(false);
+      setLastSearchCenter(center);
+      
+      // 성공 피드백
+      console.log('✅ 현위치 검색 완료');
+      
+    } catch (error) {
+      console.error('❌ 현위치 검색 실패:', error);
+      
+      // 에러 시에도 버튼 숨기기 (사용자 혼란 방지)
+      setShowCurrentLocationButton(false);
+      
+      // 사용자에게 에러 피드백 제공 (옵션)
+      // alert('현위치 검색에 실패했습니다. 다시 시도해주세요.');
+    }
   };
 
   // 지도 이벤트 핸들러
@@ -146,6 +193,11 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
     }
   };
 
+  const handleRestaurantClick = (restaurantId: string) => {
+    console.log('레스토랑 클릭:', restaurantId);
+    console.log('현재 방 ID:', roomId);
+  };
+
   return (
     <div 
       className="bg-gray-100 relative overflow-hidden"
@@ -163,12 +215,15 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
       <MapContainer
         markers={mapMarkers}
         eventHandlers={mapEventHandlers}
+        onMapMoved={handleMapMoved}
       />
       <MapOverlay
         users={users}
         onDepartureSubmit={handleDepartureSubmit}
-        onCurrentLocationClick={handleCurrentLocationClick}
         onUserProfileClick={handleUserProfileClick}
+        onCurrentLocationSearch={handleCurrentLocationSearch}
+        showCurrentLocationButton={showCurrentLocationButton}
+        currentMapCenter={currentMapCenter}
       />
       <ChatSection
         onAuroraToggle={handleAuroraToggle}
@@ -264,4 +319,4 @@ const AppContainer: React.FC = () => {
   );
 };
 
-export default AppContainer; 
+export default AppContainer;
