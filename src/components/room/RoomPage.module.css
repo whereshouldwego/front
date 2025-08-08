@@ -1,0 +1,151 @@
+/* RoomPage.module.css */
+
+/* 메인 컨테이너 */
+.container {
+  position: relative;
+  height: 100vh;
+}
+
+/* 메인 앱 영역 - 전체 화면 */
+.mainApp {
+  height: 100%;
+}
+
+/* 플로팅 버튼 컨테이너 - 상단 중앙 */
+.floatingButtonContainer {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+
+/* 공유 버튼 스타일 - 플로팅 */
+.shareButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 9999px; /* rounded-full */
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(52, 152, 219, 0.3);
+  transition: all 0.3s ease;
+}
+
+.shareButton:hover {
+  background-color: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(52, 152, 219, 0.4);
+}
+
+.shareButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ...existing code... */
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #f9fafb;
+}
+
+.loadingContent {
+  text-align: center;
+}
+
+.loadingSpinner {
+  animation: spin 1s linear infinite;
+  border-radius: 50%;
+  height: 128px;
+  width: 128px;
+  border: 4px solid #dbeafe;
+  border-top-color: #2563eb;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loadingText {
+  color: #4b5563;
+  font-weight: 500;
+}
+
+/* 에러 화면 */
+.errorContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #f9fafb;
+}
+
+.errorContent {
+  text-align: center;
+  max-width: 448px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.errorIcon {
+  color: #ef4444;
+  font-size: 4rem;
+  margin-bottom: 16px;
+}
+
+.errorTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: #1f2937;
+}
+
+.errorDescription {
+  color: #4b5563;
+  margin-bottom: 24px;
+}
+
+.errorButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.errorButton {
+  width: 100%;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.errorButtonPrimary {
+  background-color: #2563eb;
+  color: white;
+}
+
+.errorButtonPrimary:hover {
+  background-color: #1d4ed8;
+}
+
+.errorButtonSecondary {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.errorButtonSecondary:hover {
+  background-color: #e5e7eb;
+}

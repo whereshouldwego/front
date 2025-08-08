@@ -1,31 +1,38 @@
+/* InitialScreen.module.css */
+
 .container {
   position: fixed;
   inset: 0;
-  /* 블러 배경 효과 추가 */
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* 더 높은 투명도 */
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
   padding: 1rem;
-  z-index: 1000;
+  z-index: 1200;
+  pointer-events: all;
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.95); /* 반투명 배경 */
-  backdrop-filter: blur(20px); /* 추가 블러 효과 */
+  background: rgba(255, 255, 255, 0.7); /* 투명도 높임 */
+  backdrop-filter: blur(20px); /* 블러 조금 줄임 */
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2); /* 유리 효과 */
+  border: 1px solid rgba(255, 255, 255, 0.2); /* 더 투명한 테두리 */
   border-radius: 24px;
   box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.1); /* 내부 글로우 효과 */
+    0 25px 50px -12px rgba(0, 0, 0, 0.25), /* 그림자 조금 줄임 */
+    0 0 0 1px rgba(255, 255, 255, 0.1), /* 더 투명한 내부 글로우 */
+    inset 0 1px 0 rgba(255, 255, 255, 0.1); /* 더 투명한 내부 하이라이트 */
   padding: 2rem;
   width: 100%;
   max-width: 400px;
   text-align: center;
+  pointer-events: all;
+  position: relative;
+  z-index: 1201;
 }
 
 /* 헤더 */
@@ -33,28 +40,12 @@
   margin-bottom: 2rem;
 }
 
-.logo {
-  width: 64px;
-  height: 64px;
-  background: linear-gradient(135deg, #3b82f6, #6366f1);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 1rem auto;
-  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3); /* 로고 글로우 효과 */
-}
-
-.logoText {
-  font-size: 2rem;
-}
-
 .title {
   font-size: 2rem;
   font-weight: bold;
   color: #1f2937;
   margin: 0 0 0.5rem 0;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); /* 텍스트 그림자 */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .subtitle {
@@ -76,43 +67,70 @@
   border-radius: 12px;
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s ease; /* 트랜지션 단축 */
   font-family: inherit;
   text-align: left;
-  backdrop-filter: blur(10px); /* 버튼에도 블러 효과 */
+  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.3s; /* 더 빠르게 */
+}
+
+.button:hover::before {
+  left: 100%;
 }
 
 .button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px); /* 더 적게 올라감 */
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); /* 더 은은한 그림자 */
 }
 
 .button:active {
-  transform: translateY(0);
+  transform: translateY(-1px);
 }
 
-.guestButton {
-  background: rgba(249, 250, 251, 0.8); /* 반투명 배경 */
-  border: 2px solid rgba(229, 231, 235, 0.8);
-  color: #374151;
-  backdrop-filter: blur(10px);
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
-.guestButton:hover {
-  background: rgba(243, 244, 246, 0.9);
-  border-color: rgba(209, 213, 219, 0.9);
-}
-
-.memberButton {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(99, 102, 241, 0.9));
-  color: white;
+/* 카카오 로그인 버튼 */
+.kakaoButton {
+  background: linear-gradient(135deg, #fee500, #ffeb3b);
+  color: #3a1d1d;
   border: 2px solid transparent;
-  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 25px rgba(254, 229, 0, 0.3);
 }
 
-.memberButton:hover {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(79, 70, 229, 0.95));
+.kakaoButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, #fdd835, #f9a825);
+  box-shadow: 0 12px 35px rgba(254, 229, 0, 0.4);
+}
+
+/* 비회원 방 생성 버튼 */
+.guestButton {
+  background: rgba(249, 250, 251, 0.8); /* 더 투명하게 */
+  border: 2px solid rgba(229, 231, 235, 0.7); /* 더 투명하게 */
+  color: #374151;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.guestButton:hover:not(:disabled) {
+  background: rgba(243, 244, 246, 0.85); /* 더 투명하게 */
+  border-color: rgba(209, 213, 219, 0.8); /* 더 투명하게 */
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
 }
 
 .buttonContent {
@@ -123,13 +141,13 @@
 }
 
 .buttonIcon {
-  width: 24px;
-  height: 24px;
+  width: 1.25rem;
+  height: 1.25rem;
   flex-shrink: 0;
 }
 
 .buttonText {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -140,12 +158,12 @@
   line-height: 1.4;
 }
 
-.guestButton .buttonDescription {
-  color: #6b7280;
+.kakaoButton .buttonDescription {
+  color: rgba(58, 29, 29, 0.8);
 }
 
-.memberButton .buttonDescription {
-  color: rgba(255, 255, 255, 0.9);
+.guestButton .buttonDescription {
+  color: #6b7280;
 }
 
 /* 푸터 */
@@ -167,29 +185,10 @@
   line-height: 1.4;
 }
 
-/* 로딩 오버레이 */
-.loadingOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(5px); /* 로딩 중에도 블러 효과 */
-  -webkit-backdrop-filter: blur(5px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.loadingSpinner {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  padding: 2rem;
-  border-radius: 12px;
+/* 로딩 컨테이너 */
+.loadingContainer {
   text-align: center;
-  color: #374151;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  padding: 2rem 0;
 }
 
 .spinner {
@@ -207,52 +206,6 @@
   100% { transform: rotate(360deg); }
 }
 
-.cancelButton {
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  color: #6b7280;
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-}
-
-.cancelButton:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
-}
-
-/* 애니메이션 효과 추가 */
-.container {
-  animation: fadeIn 0.6s ease-out;
-}
-
-.card {
-  animation: slideUp 0.8s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* 반응형 */
 @media (max-width: 480px) {
   .card {
@@ -264,32 +217,20 @@
   .title {
     font-size: 1.75rem;
   }
-  
-  .logo {
-    width: 56px;
-    height: 56px;
-  }
-  
-  .logoText {
-    font-size: 1.75rem;
-  }
 }
 
 /* 브라우저 호환성을 위한 추가 스타일 */
-@supports not (backdrop-filter: blur(10px)) {
+@supports not (backdrop-filter: blur(15px)) {
   .container {
-    background: rgba(240, 249, 255, 0.9);
+    background: rgba(255, 255, 255, 0.9);
   }
   
   .card {
-    background: rgba(255, 255, 255, 0.98);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
   }
   
-  .guestButton {
-    background: rgba(249, 250, 251, 0.95);
-  }
-  
-  .memberButton {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(99, 102, 241, 0.95));
+  .button {
+    background: rgba(255, 255, 255, 0.9) !important;
   }
 }
