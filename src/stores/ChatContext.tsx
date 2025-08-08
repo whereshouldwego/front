@@ -9,9 +9,9 @@
  */
 
 
-import React, { createContext, useCallback, useContext, useState } from 'react';
-import { chatAPI } from '../lib/api'; // Updated import
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { ChatMessage, ChatRequest } from '../types';
+import { chatAPI, isApiSuccess, isApiError } from '../lib/api';
 
 interface ChatContextType {
   messages: ChatMessage[];
@@ -75,17 +75,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
       const response = await chatAPI.sendMessage(request);
       
-      if ('success' in response && response.success) {
+      if (isApiSuccess(response)) {
         // 봇 응답 추가
         const botMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'bot',
-          content: response.data.message,
+          content: response.data.message || '응답을 받았습니다.',
           timestamp: new Date()
         };
 
         setMessages(prev => [...prev, botMessage]);
-      } else if ('error' in response) {
+      } else if (isApiError(response)) {
         setError(response.error.message || '메시지 전송 중 오류가 발생했습니다.');
         
         // 에러 메시지 추가

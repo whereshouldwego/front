@@ -22,15 +22,21 @@ npm install
 
 ```env
 # 카카오맵 API 키 (REST API 키)
-VITE_KAKAO_REST_API_KEY=여기에_카카오_REST_API_키를_입력하세요
-
-# 카카오 로그인 설정
-VITE_KAKAO_CLIENT_ID=여기에_카카오_앱_키를_입력하세요
-VITE_KAKAO_REDIRECT_URI=http://localhost:5173/auth/kakao/callback
+VITE_KAKAO_MAP_REST_API_KEY=여기에_카카오맵_REST_API_키를_입력하세요
 
 # 백엔드 API 서버 주소
-VITE_API_URL=http://localhost:8080
+VITE_API_URL=http://localhost:8080/api
+
+# 개발 환경 설정
+VITE_APP_ENV=development
 ```
+
+**카카오맵 API 키 발급 방법:**
+1. [카카오 개발자 센터](https://developers.kakao.com/)에 로그인
+2. 애플리케이션 생성 또는 기존 애플리케이션 선택
+3. "플랫폼" → "Web" 플랫폼 등록
+4. "앱 키" → "REST API 키" 복사
+5. `.env` 파일의 `VITE_KAKAO_MAP_REST_API_KEY`에 붙여넣기
 
 ### 3. 개발 서버 실행
 ```bash
@@ -47,6 +53,58 @@ npm run dev
 - **찜하기**: 관심 맛집 저장 및 관리
 - **채팅**: AI 챗봇을 통한 맛집 추천 대화
 - **카카오 로그인**: 소셜 로그인 지원
+- **상세 정보 모달**: 카드 클릭 시 백엔드에서 상세 정보 조회
+- **통합 API**: 카카오맵 + 백엔드 API 연동
+
+## 카카오맵 API 활용
+
+### 사용 가능한 API 기능
+- **키워드 검색**: 장소명, 음식점명으로 검색
+- **카테고리 검색**: 음식점(FD6), 카페(CE7) 등 카테고리별 검색
+- **주소-좌표 변환**: 주소를 좌표로 변환
+- **좌표-주소 변환**: 좌표를 주소로 변환
+- **행정구역 검색**: 좌표 기반 행정구역 정보
+
+### 카테고리 코드
+- `FD6`: 음식점
+- `CE7`: 카페
+- `AD5`: 숙박
+- `CS2`: 편의점
+- `HP8`: 병원
+- `PM9`: 약국
+
+## 사용 예시
+
+### 1. 검색 기능 사용
+```tsx
+import { integratedSearchAPI } from '@/lib/api';
+
+// 키워드 검색
+const restaurants = await integratedSearchAPI.searchAndEnrich('강남 맛집');
+
+// 카테고리 검색
+const cafes = await integratedSearchAPI.searchByCategory('CE7');
+```
+
+### 2. 상세 정보 조회
+```tsx
+import { useRestaurantDetail } from '@/hooks/useRestaurantDetail';
+
+const { detail, isLoading, error, isModalOpen, openDetail } = useRestaurantDetail();
+
+// 카드 클릭 시 상세 정보 조회
+const handleCardClick = (restaurant) => {
+  openDetail(restaurant); // 백엔드에서 상세 정보 자동 조회
+};
+```
+
+### 3. 백엔드 API 직접 사용
+```tsx
+import { placeAPI } from '@/lib/api';
+
+// 장소 상세 정보 조회
+const response = await placeAPI.getPlaceById('place_id');
+```
 
 ## 📁 프로젝트 구조 및 협업 가이드
 

@@ -5,10 +5,13 @@
  *
  * 기능:
  * - 패널 설정 상수
- * - 버튼 설정 상수
+ * - 버튼 설정 상수 (아이콘 경로 포함)
  * - API 관련 상수
  * - 스타일 관련 상수
+ * - 메시지 상수
  */
+
+import type { SidebarButtonConfig, SidebarPanelConfig } from '../types';
 
 // 패널 타입 정의
 export const PANEL_TYPES = {
@@ -19,7 +22,7 @@ export const PANEL_TYPES = {
 } as const;
 
 // 패널 설정
-export const PANEL_CONFIGS = {
+export const PANEL_CONFIGS: Record<string, SidebarPanelConfig> = {
   [PANEL_TYPES.SEARCH]: {
     title: 'Stroll Around',
     searchPlaceholder: '위치를 입력하세요',
@@ -42,46 +45,78 @@ export const PANEL_CONFIGS = {
   }
 } as const;
 
-// 패널 버튼 설정
-export const PANEL_BUTTONS = [
-  { 
-    id: PANEL_TYPES.SEARCH, 
-    icon: '🔍', 
+// 버튼 설정 (아이콘 경로 포함)
+export const BUTTON_CONFIGS: SidebarButtonConfig[] = [
+  {
+    type: 'search',
     label: '검색',
-    description: '키워드로 맛집 검색'
+    baseIcon: '/images/search-base.png',
+    selectedIcon: '/images/search-selected.png',
+    position: 0
   },
-  { 
-    id: PANEL_TYPES.RECOMMEND, 
-    icon: '⭐', 
+  {
+    type: 'recommend',
     label: '추천',
-    description: '여기갈래 추천 맛집'
+    baseIcon: '/images/matdol-base.png',
+    selectedIcon: '/images/matdol-selected.png',
+    position: 52.5 // 75px * 0.7
   },
-  { 
-    id: PANEL_TYPES.CANDIDATE, 
-    icon: '🗳️', 
+  {
+    type: 'candidate',
     label: '후보',
-    description: '투표 후보 맛집'
+    baseIcon: '/images/vote-base.png',
+    selectedIcon: '/images/vote-selected.png',
+    position: 105 // 150px * 0.7
   },
-  { 
-    id: PANEL_TYPES.FAVORITE, 
-    icon: '❤️', 
+  {
+    type: 'favorite',
     label: '찜',
-    description: '찜한 맛집 목록'
+    baseIcon: '/images/jjim-base.png',
+    selectedIcon: '/images/jjim-selected.png',
+    position: 157.5 // 225px * 0.7
   }
-] as const;
+];
+
+// 패널별 데이터 키 매핑
+export const PANEL_DATA_KEYS = {
+  [PANEL_TYPES.SEARCH]: {
+    dataKey: 'searchResults',
+    loadingKey: 'searchLoading',
+    errorKey: 'searchError'
+  },
+  [PANEL_TYPES.RECOMMEND]: {
+    dataKey: 'recommendations',
+    loadingKey: 'recommendLoading',
+    errorKey: 'recommendError'
+  },
+  [PANEL_TYPES.CANDIDATE]: {
+    dataKey: 'votes',
+    loadingKey: 'voteLoading',
+    errorKey: 'voteError'
+  },
+  [PANEL_TYPES.FAVORITE]: {
+    dataKey: 'favorites',
+    loadingKey: 'favoriteLoading',
+    errorKey: 'favoriteError'
+  }
+} as const;
 
 // 사이드바 크기 설정
-export const SIDEBAR_SIZES = {
+export const SIDEBAR_SIZES = {  
   COLLAPSED_WIDTH: '63px',
   EXPANDED_WIDTH: '229px',
-  TRANSITION_DURATION: '0.3s'
+  TRANSITION_DURATION: '0.3s',
+  BUTTON_HEIGHT: '52.5px',
+  BUTTON_SPACING: '52.5px',
 } as const;
 
 // 검색 관련 상수
 export const SEARCH_CONFIG = {
   DEFAULT_LIMIT: 15,
   MAX_LIMIT: 45,
-  DEBOUNCE_DELAY: 300
+  DEBOUNCE_DELAY: 300,
+  DEFAULT_LOCATION: 'current',
+  DEFAULT_CATEGORY: ''
 } as const;
 
 // API 관련 상수
@@ -114,4 +149,19 @@ export const EMPTY_MESSAGES = {
   [PANEL_TYPES.RECOMMEND]: '추천할 맛집이 없습니다.',
   [PANEL_TYPES.CANDIDATE]: '투표 후보가 없습니다.',
   [PANEL_TYPES.FAVORITE]: '찜한 맛집이 없습니다.'
+} as const;
+
+// 로고 설정
+export const LOGO_CONFIG = {
+  URL: '/images/logo.png',
+  ALT: '로고',
+  WIDTH: 28,
+  HEIGHT: 28
+} as const;
+
+// 기본 검색 요청 설정
+export const DEFAULT_SEARCH_REQUEST = {
+  location: SEARCH_CONFIG.DEFAULT_LOCATION,
+  category: SEARCH_CONFIG.DEFAULT_CATEGORY,
+  limit: SEARCH_CONFIG.DEFAULT_LIMIT
 } as const; 

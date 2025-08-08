@@ -9,10 +9,8 @@
  * - 사이드바와 메인 콘텐츠 영역 구성
  * - 지도와 채팅 섹션 통합
  * - 사용자 프로필 및 위치 관리
- * - 현위치 검색 기능 지원
  *
  * 구조:
- * - 라우터 설정 (초기화면, 방 페이지, 404)
  * - 사이드바 (왼쪽)
  * - 메인 콘텐츠 영역 (지도 + 오버레이)
  * - 채팅 섹션 (오른쪽)
@@ -22,26 +20,21 @@
  * - 지도 마커 데이터
  * - 현위치 검색 버튼 표시 상태
  * - 이벤트 핸들러들
- *
- * Provider:
- * - WebSocketProvider: 웹소켓 상태 관리
- * - SidebarProvider: 사이드바 상태 관리
- * - ChatProvider: 채팅 상태 관리
  */
 
 import React, { useMemo, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import { restaurantData } from '../../data/restaurantData';
 import { ChatProvider } from '../../stores/ChatContext';
 import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
 import { WebSocketProvider, useWebSocket } from '../../stores/WebSocketContext';
-import { restaurantData } from '../../data/restaurantData';
 import type { MapCenter, MapEventHandlers, MapMarker, UserProfile } from '../../types';
 import ChatSection from '../chat/ChatSection';
+import InitialScreen from '../initial/InitialScreen';
 import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
-import { Sidebar } from '../sidebar';
-import InitialScreen from '../initial/InitialScreen';
 import RoomPage from '../room/RoomPage';
+import { Sidebar } from '../sidebar';
 
 // 메인 서비스 컴포넌트 (기존 MainContent)
 const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
@@ -51,7 +44,10 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
   // 현위치 검색 버튼 표시 상태
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
   const [lastSearchCenter, setLastSearchCenter] = useState<MapCenter | null>(null);
-  
+  const [currentMapCenter, setCurrentMapCenter] = useState<MapCenter>({
+    lat: 37.5002,
+    lng: 127.0364
+  });
   
   // 동적 사용자 프로필 예시
   const [users, setUsers] = useState<UserProfile[]>([
@@ -109,6 +105,7 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
     }));
   }, [searchResults, recommendations, favorites, votes]);
 
+
   // 이벤트 핸들러들
   const handleAuroraToggle = (isActive: boolean) => {
     console.log('Aurora 버튼 상태:', isActive);
@@ -131,15 +128,11 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
     console.log('현재 방 ID:', roomId);
   };
 
-  const handleRestaurantClick = (restaurantId: string) => {
-    console.log('레스토랑 클릭:', restaurantId);
-    console.log('현재 방 ID:', roomId);
-  };
-
 
   // 지도 이동 시 버튼 표시 로직
   const handleMapMoved = (center: MapCenter) => {
     console.log('지도 이동:', center);
+    setCurrentMapCenter(center);
     
     // 지도가 이동했고, 이전 검색 위치와 충분히 다르면 버튼 표시
     const threshold = 0.001; // 약 100m 정도의 거리
@@ -192,12 +185,17 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
       console.log('마커 클릭:', markerId);
       handleRestaurantClick(markerId);
     },
-    onMapDragEnd: (center: MapCenter) => {
+    onMapDragEnd: (center) => {
       console.log('지도 드래그 종료:', center);
     },
     onMapZoomChanged: (level: number) => {
       console.log('지도 줌 변경:', level);
     }
+  };
+
+  const handleRestaurantClick = (restaurantId: string) => {
+    console.log('레스토랑 클릭:', restaurantId);
+    console.log('현재 방 ID:', roomId);
   };
 
   return (
@@ -225,6 +223,7 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
         onUserProfileClick={handleUserProfileClick}
         onCurrentLocationSearch={handleCurrentLocationSearch}
         showCurrentLocationButton={showCurrentLocationButton}
+        currentMapCenter={currentMapCenter}
       />
       <ChatSection
         onAuroraToggle={handleAuroraToggle}
@@ -252,8 +251,13 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
   );
 };
 
-// 메인 페이지 컴포넌트 (초기화면 + 배경 서비스)
+
+// 앱 컨테이너 컴포넌트
 const MainPage: React.FC = () => {
+  const handleSidebarExpandedChange = (expanded: boolean) => {
+    console.log('Sidebar expanded:', expanded);
+  };
+
   return (
     <div className="relative">
       {/* 배경으로 서비스 화면 */}
@@ -264,7 +268,9 @@ const MainPage: React.FC = () => {
               <div className="h-screen relative">
                 <div className="absolute inset-0">
                   <div id="sidebar-container">
-                    <Sidebar />
+                  <Sidebar 
+                    onExpandedChange={handleSidebarExpandedChange}
+                  />
                   </div>
                   <MainService roomId="DEMO01" />
                 </div>

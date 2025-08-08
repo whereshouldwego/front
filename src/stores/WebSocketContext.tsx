@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { ReactNode } from 'react'
+import type { ReactNode } from 'react';
 
 // TODO: 실제 웹소켓 서버 주소로 변경해야 합니다.
 const WEBSOCKET_URL = 'ws://localhost:8080'; // 예시 URL

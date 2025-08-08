@@ -40,6 +40,12 @@ export interface MapOverlayConfig {
   showCurrentLocationButton?: boolean;
 }
 
+// 지도 중심점
+export interface MapCenter {
+  lat: number;
+  lng: number;
+}
+
 // MapOverlay props 인터페이스에 추가
 export interface MapOverlayProps {
   users?: UserProfile[];
@@ -54,7 +60,7 @@ export interface MapOverlayProps {
 }
 
 // 레스토랑 카드 클릭 핸들러
-export type RestaurantCardClickHandler = (restaurantId: string) => void;
+export type RestaurantCardClickHandler = (restaurant: Restaurant) => void;
 
 // 사이드바 패널 설정
 export interface SidebarPanelConfig {
@@ -69,7 +75,7 @@ export interface BaseComponentProps {
   children?: React.ReactNode;
 }
 
-// ===== 카카오맵 관련 타입들 =====
+// ===== 카카오맵 API 관련 타입들 =====
 
 // 카카오맵 전역 타입
 declare global {
@@ -78,11 +84,161 @@ declare global {
   }
 }
 
-// 지도 중심점
-export interface MapCenter {
-  lat: number;
-  lng: number;
+// 카카오맵 API 응답 타입
+export interface KakaoMapApiResponse {
+  meta: {
+    same_name: {
+      region: string[];
+      keyword: string;
+      selected_region: string;
+    } | null;
+    pageable_count: number;
+    total_count: number;
+    is_end: boolean;
+  };
+  documents: KakaoPlaceDocument[];
 }
+
+// 카카오맵 장소 문서 타입
+export interface KakaoPlaceDocument {
+  id: string;
+  place_name: string;
+  category_name: string;
+  category_group_code: string;
+  category_group_name: string;
+  phone: string;
+  address_name: string;
+  road_address_name: string;
+  x: string;
+  y: string;
+  place_url: string;
+  distance: string;
+}
+// 카카오맵 검색 요청 타입
+export interface KakaoSearchRequest {
+  query: string;
+  x?: string;
+  y?: string;
+  radius?: number;
+  rect?: string;
+  page?: number;
+  size?: number;
+  sort?: 'accuracy' | 'distance';
+  category_group_code?: string;
+}
+
+// 카카오맵 카테고리 검색 요청 타입
+export interface KakaoCategorySearchRequest {
+  category_group_code: string; // 카테고리 그룹 코드
+  x?: string; // 경도
+  y?: string; // 위도
+  radius?: number; // 반경 (미터)
+  rect?: string; // 사각형 영역
+  page?: number;
+  size?: number;
+  sort?: 'accuracy' | 'distance';
+}
+
+// 카카오맵 카테고리 그룹 코드
+export type KakaoCategoryGroupCode = 
+  | 'FD6' // 음식점
+  | 'CE7' // 카페
+  | 'AD5' // 숙박
+  | 'CS2' // 편의점
+  | 'SC4' // 학교
+  | 'HP8' // 병원
+  | 'PM9' // 약국
+  | 'AT4' // 관광명소
+  | 'SW8' // 지하철역
+  | 'PK6' // 주차장
+  | 'OL7' // 주유소
+  | 'MT1' // 대형마트
+  | 'AG2' // 중개업소
+  | 'PO3' // 공공기관
+  | 'CT1' // 문화시설
+  | 'PS3' // 유치원
+  | 'AC5' // 학원
+  | 'BB1' // 은행
+  | 'SP2' // 스포츠시설
+  | 'PK1' // 주차장
+  | 'LD5' // 숙박
+  | 'HP1' // 병원
+  | 'PM1' // 약국
+  | 'SW1' // 지하철역
+  | 'OL1' // 주유소
+  | 'MT1' // 대형마트
+  | 'AG1' // 중개업소
+  | 'PO1' // 공공기관
+  | 'CT1' // 문화시설
+  | 'PS1' // 유치원
+  | 'AC1' // 학원
+  | 'BB1' // 은행
+  | 'SP1'; // 스포츠시설
+
+// 카테고리 필터 타입
+export type CategoryFilter = 'all' | 'restaurant' | 'cafe';
+
+// 검색 필터 인터페이스
+export interface SearchFilter {
+  category: CategoryFilter;
+  radius?: number; // km
+  sort?: 'accuracy' | 'distance';
+}
+
+// ===== 백엔드 Place API 관련 타입들 =====
+
+// 백엔드 Place API 응답 타입
+export interface PlaceApiResponse {
+  success: boolean;
+  data: PlaceDetail;
+  message?: string;
+}
+
+// AI 요약 정보 타입(백엔드에서 제공하는 정보)
+export interface AiSummary {
+  menu: string[];
+  mood: string[];
+  feature: string[];
+  purpose: string[];
+}
+
+// 장소 상세 정보 인터페이스
+export interface PlaceDetail {
+  id: number;
+  name: string;
+  category: string;
+  categoryGroup: string;
+  phone: string;
+  address: string;
+  roadAddress: string;
+  location: {
+    lat: number;
+    lng: number;
+  };
+  placeUrl: string;
+  // 백엔드에서 제공하는 추가 정보
+  reviewCount?: number;
+  ai_summary?: AiSummary; // AI 요약 정보
+  tags?: string[]; // 태그 정보
+}
+
+// Place API 요청 타입
+export interface PlaceRequest {
+  kakaoPlaceId: string;
+  name: string;
+  category: string;
+  categoryGroup: string;
+  phone: string;
+  address: string;
+  roadAddress: string;
+  location: {
+    lat: number;
+    lng: number;
+  };
+  placeUrl: string;
+}
+
+
 
 // 지도 마커 정보
 export interface MapMarker {
@@ -117,30 +273,37 @@ export interface Restaurant {
   id: string;
   name: string;
   category: string;
-  rating: number;
-  price: string;
   distance: string;
-  description?: string;
-  tags?: string[];
+  description: string;
+  tags: string[];
   location: {
     lat: number;
     lng: number;
     address: string;
   };
-  images?: string[];
-  phone?: string;
-  hours?: string;
-  isFavorite?: boolean;
+  phone: string;
+  isFavorite: boolean;
+  isCandidate: boolean;
+  summary?: AiSummary;
+  reviewCount?: number;
+  placeUrl?: string;
+  category_group_code?: string;
+  category_group_name?: string;
+  address?: string;
+  road_address?: string;
+  place_url?: string;
+  voteCount?: number;
 }
 
 // 검색 요청 타입
 export interface SearchRequest {
-  query: string;
+  query?: string; // 키워드 검색 시에만 사용
   location?: string;
-  category?: string;
-  priceRange?: 'low' | 'medium' | 'high';
+  category?: CategoryFilter;
   radius?: number; // km
   limit?: number;
+  center?: MapCenter; // 지도 중심점
+  filter?: SearchFilter; // 검색 필터
 }
 
 // 검색 응답 타입
@@ -153,57 +316,75 @@ export interface SearchResponse {
   message?: string;
 }
 
-// 추천 요청 타입
-export interface RecommendRequest {
+export interface VoteInfo {
+  voteId: string;
+  roomId: string;
   userId: string;
-  location: string;
-  preferences?: {
-    categories?: string[];
-    priceRange?: 'low' | 'medium' | 'high';
-    rating?: number;
-  };
-  limit?: number;
+  placeId: string;
 }
 
-// 추천 응답 타입
-export interface RecommendResponse {
-  success: boolean;
-  data: Restaurant[];
-  reason: string;
-  message?: string;
-}
-
-// 찜하기 요청 타입
-export interface FavoriteRequest {
+export interface FavoriteInfo {
+  favoriteId: string;
   userId: string;
-  restaurantId: string;
-  action: 'add' | 'remove';
+  placeId: string;
 }
 
-// 찜하기 응답 타입
-export interface FavoriteResponse {
-  success: boolean;
-  data: {
-    isFavorite: boolean;
-    favoriteCount: number;
-  };
-  message?: string;
+export interface RecommendationInfo {
+  recommendationId: string;
+  roomId: string;
+  placeId: string;
 }
 
-// 투표 요청 타입
+export interface CandidateInfo {
+  candidateId: string;
+  roomId: string;
+  placeId: string;
+}
+
+// API 요청/응답 타입들
 export interface VoteRequest {
+  roomId: string;
   userId: string;
-  restaurantId: string;
-  action: 'vote' | 'unvote';
+  placeId: string;
 }
 
-// 투표 응답 타입
 export interface VoteResponse {
   success: boolean;
-  data: {
-    voteCount: number;
-    hasVoted: boolean;
-  };
+  data: VoteInfo;
+  message?: string;
+}
+
+export interface FavoriteRequest {
+  userId: string;
+  placeId: string;
+}
+
+export interface FavoriteResponse {
+  success: boolean;
+  data: FavoriteInfo;
+  message?: string;
+}
+
+export interface RecommendRequest {
+  roomId: string;
+  placeId: string;
+}
+
+export interface RecommendResponse {
+  success: boolean;
+  data: RecommendationInfo;
+  message?: string;
+}
+
+export interface CandidateInfo {
+  candidateId: string;
+  roomId: string;
+  placeId: string;
+}
+
+export interface CandidateResponse {
+  success: boolean;
+  data: CandidateInfo;
   message?: string;
 }
 
@@ -254,18 +435,38 @@ export interface LocationUpdateResponse {
 
 // API 에러 타입
 export interface ApiError {
-  success: false;
-  error: {
-    code: string;
-    message: string;
-    details?: any;
-  };
+  code: string;
+  message: string;
+  details?: any;
 }
 
 // API 응답 공통 타입
-export type ApiResponse<T> = T | ApiError;
+export type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: ApiError;
+};
 
 // ===== 상태 관리 타입들 =====
+
+// Restaurant Store 타입
+export interface RestaurantStore {
+  favorites: Set<string>;
+  candidates: Set<string>;
+  votedRestaurants: Set<string>;
+  voteCounts: Record<string, number>;
+  toggleFavorite: (restaurantId: string) => void;
+  toggleCandidate: (restaurantId: string) => void;
+  toggleVote: (restaurantId: string) => void;
+  isFavorited: (restaurantId: string) => boolean;
+  isCandidate: (restaurantId: string) => boolean;
+  isVoted: (restaurantId: string) => boolean;
+  getVoteCount: (restaurantId: string) => number;
+  getFavorites: () => string[];
+  getCandidates: () => string[];
+  getVotedRestaurants: () => string[];
+  resetState: () => void;
+}
 
 // 앱 전체 상태 타입
 export interface AppState {

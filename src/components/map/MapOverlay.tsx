@@ -18,9 +18,8 @@ import React, { useState, useCallback } from 'react';
 import type { MapOverlayConfig, UserProfile, MapCenter } from '../../types';
 import styles from './MapOverlay.module.css';
 import { useWebSocket } from '../../stores/WebSocketContext';
-import { throttle } from '../../utils/search';
+import { debounce } from '../../utils/search';
 
-// MapOverlay 컴포넌트 props 인터페이스
 interface MapOverlayProps {
   users?: UserProfile[];
   config?: MapOverlayConfig;
@@ -29,6 +28,7 @@ interface MapOverlayProps {
   onUserProfileClick?: (userId: string) => void;
   onCurrentLocationSearch?: (center: MapCenter) => void;
   showCurrentLocationButton?: boolean;
+  currentMapCenter?: MapCenter;
   className?: string;
 }
 
@@ -77,6 +77,7 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
   onUserProfileClick,
   onCurrentLocationSearch,
   showCurrentLocationButton = false,
+  currentMapCenter,
   className = ''
 }) => {
   const [showDepartureSearch, setShowDepartureSearch] = useState(config.showDepartureSearch);
@@ -87,7 +88,7 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
   // TODO: 실제 사용자 ID를 가져와야 합니다.
   const currentUserId = 'user-' + Math.random().toString(36).substring(7);
 
-  const sendCursorUpdate = useCallback(throttle((x: number, y: number) => {
+  const sendCursorUpdate = useCallback(debounce((x: number, y: number) => {
     sendMessage({
       type: 'cursorUpdate',
       userId: currentUserId,
@@ -121,13 +122,8 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
   const handleCurrentLocationSearch = () => {
     // 지도의 현재 중심점을 가져와서 검색 실행
     // 실제 구현에서는 MapContainer에서 현재 중심점을 전달받아야 함
-    if (onCurrentLocationSearch) {
-      // 임시로 역삼역 좌표 사용 (실제로는 지도 중심점을 전달받아야 함)
-      const currentCenter: MapCenter = {
-        lat: 37.5002,
-        lng: 127.0364
-      };
-      onCurrentLocationSearch(currentCenter);
+    if (onCurrentLocationSearch && currentMapCenter) {
+      onCurrentLocationSearch(currentMapCenter);
     }
   };
 
@@ -152,7 +148,7 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
               className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm font-inter outline-none transition-colors focus:border-blue-600"
               value={departureLocation}
               onChange={(e) => setDepartureLocation(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleDepartureSubmit()}
+              onKeyDown={(e) => e.key === 'Enter' && handleDepartureSubmit()}
             />
             <button
               id="search-submit-btn"
