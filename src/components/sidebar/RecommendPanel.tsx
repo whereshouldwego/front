@@ -9,58 +9,63 @@
  * - 로딩 및 에러 상태 처리
  */
 
-import React, { useEffect } from 'react';
-import { EMPTY_MESSAGES, LOADING_MESSAGES, PANEL_CONFIGS } from '../../constants/sidebar';
+import React, { useCallback, useEffect } from 'react';
+import { EMPTY_MESSAGES, PANEL_CONFIGS } from '../../constants/sidebar'; // LOADING_MESSAGES 추후 사용
 import RestaurantCard from '../ui/RestaurantCard';
 import ActionButtons from '../ui/ActionButtons';
 import styles from './SidebarPanels.module.css';
 // import { useRecommendations } from '../../hooks/useRecommendations'; 
-import { useRestaurantStore } from '../../stores/RestaurantStore'; // 임시로 search 사용. 추후 생성해야 함
+ // 임시로 search 사용. 추후 생성해야 함
+ import { useSidebar } from '../../stores/SidebarContext';
+ import type { MapCenter } from '../../types';
+ 
+ const DEFAULT_CENTER: MapCenter = {
+  lat: 37.5002, // 역삼역 위도
+  lng: 127.0364 // 역삼역 경도
+};
 
 interface RecommendPanelProps {
   userId: number;
-  roomCode?: string;
+  center?: MapCenter;
 }
 
-const RecommendPanel: React.FC<RecommendPanelProps> = ({ userId, roomCode }) => {
-  const {
-    recommendations,
-    loading: recommendationsLoading,
-    error: recommendationsError,
-    fetchRecommendations,
-    refreshRecommendations
-  } = useRecommendations(roomCode);
-
-  // 전역 상태에서 필요한 데이터
+const RecommendPanel: React.FC<RecommendPanelProps> = ({ userId, center }) => {
+  // SidebarContext에서 검색 결과와 함수들 가져오기
   const { 
-    favorites,
-    candidates,
-    refreshFavorites,
-    refreshCandidates 
-  } = useRestaurantStore();
+    searchResults,
+    performSearch
+  } = useSidebar();
 
-  // 컴포넌트 마운트 시 추천 데이터 로드
+  // 컴포넌트 마운트 시 위치 기반 검색 실행 (추천용)
   useEffect(() => {
-    if (roomCode) {
-      fetchRecommendations();
+    if (center) {
+      const searchCenter = center || DEFAULT_CENTER;
+      performSearch({
+        query: '',
+        location: `${searchCenter.lat},${searchCenter.lng}`,
+        limit: 10
+      });
     }
-  }, [roomCode, fetchRecommendations]);
+  }, [center, performSearch]);
 
-  const handleStateChange = async () => {
+  const handleStateChange = useCallback(async () => {
     try {
-      // 관련 상태들을 병렬로 새로고침
-      await Promise.all([
-        refreshRecommendations(),
-        refreshFavorites(),
-        refreshCandidates()
-      ]);
+      // 검색 결과를 다시 가져와서 상태 정보 업데이트
+      if (center) {
+        const searchCenter = center || DEFAULT_CENTER;
+        await performSearch({
+          query: '',
+          location: `${searchCenter.lat},${searchCenter.lng}`,
+          limit: 10
+        });
+      }
     } catch (error) {
-      console.error('상태 새로고침 중 오류 발생:', error);
+      console.error('추천 데이터 새로고침 중 오류 발생:', error);
     }
-  };
+  }, [center, performSearch]);
   // 추천 결과 렌더링
   const renderRecommendations = () => {
-    if (!recommendations || recommendations.length === 0) {
+    if (!searchResults || searchResults.length === 0) {
       return (
         <div className={styles.emptyState}>
           <p>{EMPTY_MESSAGES.recommend}</p>
@@ -70,10 +75,10 @@ const RecommendPanel: React.FC<RecommendPanelProps> = ({ userId, roomCode }) => 
   return (
     <div className={styles.resultsContainer}>
     <div className={styles.resultsHeader}>
-      <span>추천 맛집 ({recommendations.length}개)</span>
+      <span>추천 맛집 ({searchResults.length}개)</span>
     </div>
     <div className={styles.restaurantCards}>
-      {recommendations.map((restaurant) => (
+      {searchResults.map((restaurant) => (
         <RestaurantCard
           key={restaurant.placeId}
           data={restaurant}
@@ -107,23 +112,23 @@ return (
     {/* 패널 바디 */}
     <div className={styles.panelBody}>
       {/* 로딩 상태 */}
-      {recommendationsLoading && (
+      {/* {recommendationsLoading && (
         <div className={styles.loadingState}>
           <div className={styles.spinner}></div>
           <p>{LOADING_MESSAGES.LOADING}</p>
         </div>
-      )}
+      )} */}
 
       {/* 에러 상태 */}
-      {!recommendationsLoading && recommendationsError && (
+      {/* {!recommendationsLoading && recommendationsError && (
         <div className={styles.errorState}>
           <p>{recommendationsError}</p>
         </div>
-      )}
+      )} */}
 
       {/* 추천 결과 */}
-      {!recommendationsLoading && !recommendationsError && renderRecommendations()}
-    </div>
+      {renderRecommendations()}
+      </div>
   </div>
 );
 };

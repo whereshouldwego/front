@@ -9,12 +9,12 @@ import type { RestaurantWithStatus } from '../types';
 import { useRestaurantStore } from '../stores/RestaurantStore';
 import { localDetailToRestaurant } from '../utils/location';
 
-export function useCandidates(roomCode: string | undefined, userId?: number) {
+export function useCandidates(roomCode: string | undefined) {
   const [items, setItems] = useState<RestaurantWithStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { isFavorited, isVoted, getVoteCount } = useRestaurantStore();
+  const { isFavorited, isVoted } = useRestaurantStore();
 
   const refresh = useCallback(async () => {
     if (!roomCode) return;

@@ -21,7 +21,7 @@ interface Props {
 }
 
 const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
-  const hasStatus = 'isFavorite' in data;
+  // const hasStatus = 'isFavorite' in data;
 
   const getSecondCategory = (category: string): string => {
     const parts = category.split(' > ');

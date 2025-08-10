@@ -22,7 +22,7 @@ interface Props {
 }
 
 const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
-  const { items, loading, error, refresh } = useCandidates(roomCode, userId);
+  const { items, loading, error, refresh } = useCandidates(roomCode);
 
   const handleStateChange = () => {
     // 상태 변경 후 후보 목록 새로고침
@@ -56,7 +56,7 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
             <p>{error}</p>
           </div>
         )}
-        
+
         {/* 후보 결과 */}
         {!loading && items.length > 0 && (
           <div className={styles.resultsContainer}>

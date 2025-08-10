@@ -1,7 +1,7 @@
 // src/hooks/useFavorites.ts
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { favoriteAPI, placeAPI } from '../lib/api';
-import type { Restaurant, LocalDetail, RestaurantWithStatus } from '../types';
+import type { LocalDetail, RestaurantWithStatus } from '../types';
 import { localDetailToRestaurant } from '../utils/location';
 import { useRestaurantStore } from '../stores/RestaurantStore';
 
@@ -41,10 +41,11 @@ export function useFavorites(userId?: number) {
               voteCount: getVoteCount(restaurant.placeId)
             };
           }
-          return null; // null 반환 추가
+          return null;
         })
       );
-      setItems(list);
+      const validItems = list.filter((item): item is RestaurantWithStatus => item !== null);
+      setItems(validItems);
     } catch (e: any) {
       setError(e?.message || '찜 목록을 불러오는 중 오류가 발생했습니다.');
       setItems([]);
