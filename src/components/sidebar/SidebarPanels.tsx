@@ -37,13 +37,13 @@ const SidebarPanels: React.FC<SidebarPanelsProps> = ({ activePanel }) => {
       case 'search':
         return <SearchPanel roomCode={roomCode} center={center} userId={userId} />;
       case 'recommend':
-        return <RecommendPanel />;
+        return <RecommendPanel userId={userId} />;
       case 'candidate':
-        return <CandidatePanel />;
+        return <CandidatePanel roomCode={roomCode} userId={userId} />;
       case 'favorite':
         return <FavoritePanel userId={userId} />;
       default:
-        return <SearchPanel />;
+        return <SearchPanel roomCode={roomCode} center={center} userId={userId} />;
     }
   };
 

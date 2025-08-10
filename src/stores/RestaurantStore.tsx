@@ -9,7 +9,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
       (set, get) => ({
         // 초기 상태
         favorites: new Set<number>(),
-        favoriteIndex: {} as Record<number, number>,
+        favoriteIndex: {},
         candidates: new Set<number>(), // 이 줄 추가 필요
         votedRestaurants: new Set<number>(),
         voteCounts: {} as Record<number, number>,
@@ -94,13 +94,17 @@ export const useRestaurantStore = create<RestaurantStore>()(
         },
 
         /**
-         * 후보 토글
+         * 후보 토글 -> 실제 구현시 수정 필요
          * 현재 스웨거에 생성/삭제 API 없음 → 로컬 변경 금지
          * 후보는 /candidate/history/{roomCode} 로만 동기화해서 사용.
          */
-        toggleCandidate: (_placeId: number) => {
-          console.warn('[candidate] 토글 미구현 - 서버 명세 확인 필요'); // (추후 명세 확인 요망)
-          // 의도적으로 no-op
+        toggleCandidate: (placeId: number) => {
+          set((s) => {
+            const next = new Set(s.candidates);
+            if (next.has(placeId)) next.delete(placeId);
+            else next.add(placeId);
+            return { candidates: next };
+          });
         },
 
         /**
@@ -154,9 +158,9 @@ export const useRestaurantStore = create<RestaurantStore>()(
         }),
         onRehydrateStorage: () => (state: any) => {
           if (state) {
-            state.favorites = new Set<string>(state.favorites ?? []);
-            state.candidates = new Set<string>(state.candidates ?? []);
-            state.votedRestaurants = new Set<string>(state.votedRestaurants ?? []);
+            state.favorites = new Set<number>(state.favorites ?? []);
+            state.candidates = new Set<number>(state.candidates ?? []);
+            state.votedRestaurants = new Set<number>(state.votedRestaurants ?? []);
           }
         }
       }

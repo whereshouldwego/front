@@ -16,36 +16,10 @@ import RestaurantCard from '../ui/RestaurantCard';
 import ActionButtons from '../ui/ActionButtons';
 import styles from './SidebarPanels.module.css';
 
-const RecommendPanel: React.FC = () => {
+const RecommendPanel: React.FC<{ userId: number }> = ({ userId }) => {
   const [recommendations, setRecommendations] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [candidates, setCandidates] = useState<Set<string>>(new Set());
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
-
-  const handleCandidateClick = (restaurantId: string) => {
-    setCandidates(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(restaurantId)) {
-        newSet.delete(restaurantId);
-      } else {
-        newSet.add(restaurantId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleFavoriteClick = (restaurantId: string) => {
-    setFavorites(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(restaurantId)) {
-        newSet.delete(restaurantId);
-      } else {
-        newSet.add(restaurantId);
-      }
-      return newSet;
-    });
-  };
 
   // 컴포넌트 마운트 시 추천 데이터 가져오기
   useEffect(() => {
@@ -54,56 +28,8 @@ const RecommendPanel: React.FC = () => {
       setError(null);
       
       try {
-        // 실제 API 호출 대신 임시 데이터 사용
-        const mockRecommendations: Restaurant[] = [
-          {
-            id: 'rec1',
-            name: '맛있는 한식집',
-            category: '한식',
-            distance: '100m',
-            phone: '02-1111-2222',
-            location: { lat: 37.5002, lng: 127.0364, address: '서울 강남구 강남대로 123'},
-            placeUrl: 'https://place.map.kakao.com/1111111111',
-            description: '정갈한 한식과 친절한 서비스',
-            tags: ['한식', '가정식'],
-            isFavorite: false,
-            isCandidate: false
-          },
-          {
-            id: 'rec2',
-            name: '고급 양식당',
-            category: '양식',
-            category_group_code: 'FD6',
-            category_group_name: '음식점',
-            phone: '02-2222-3333',
-            address: '서울 강남구 강남대로 456',
-            road_address: '서울 강남구 강남대로 456',
-            location: { lat: 37.5005, lng: 127.0368, address: '서울 강남구 강남대로 456' },
-            place_url: 'https://place.map.kakao.com/2222222222',
-            distance: '200m',
-            description: '분위기 좋은 양식 레스토랑',
-            tags: ['양식', '스테이크'],
-            isFavorite: false,
-            isCandidate: false
-          },
-          {
-            id: 'rec3',
-            name: '정통 일식집',
-            category: '일식',
-            category_group_code: 'FD6',
-            category_group_name: '음식점',
-            phone: '02-3333-4444',
-            address: '서울 강남구 강남대로 789',
-            road_address: '서울 강남구 강남대로 789',
-            location: { lat: 37.5008, lng: 127.0372, address: '서울 강남구 강남대로 789' },
-            place_url: 'https://place.map.kakao.com/3333333333',
-            distance: '300m',
-            description: '신선한 재료의 일식집',
-            tags: ['일식', '초밥'],
-            isFavorite: false,
-            isCandidate: false
-          }
-        ];
+        // 임시로 빈 배열로 설정 (구현 전까지)
+        const mockRecommendations: Restaurant[] = [];
         
         // 로딩 시뮬레이션
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -155,21 +81,18 @@ const RecommendPanel: React.FC = () => {
             </div>
             <div className={styles.restaurantCards}>
               {recommendations.map((restaurant) => (
-                <RestaurantCard
-                  key={restaurant.id}
-                  restaurant={restaurant}
+                  <RestaurantCard
+                  data={restaurant}
                   className={styles.restaurantCard}
-                >
-                  <ActionButtons
-                    restaurantId={restaurant.id}
-                    showFavoriteButton={true}
-                    showCandidateButton={true}
-                    onFavoriteClick={handleFavoriteClick}
-                    onCandidateClick={handleCandidateClick}
-                    isFavorited={(favorites as Set<string>).has(restaurant.id)}
-                    isCandidate={(candidates as Set<string>).has(restaurant.id)}
-                  />
-                </RestaurantCard>
+                  actions={
+                    <ActionButtons
+                      userId={userId || 1}
+                      placeId={restaurant.placeId}
+                      showFavoriteButton
+                      showCandidateButton
+                    />
+                  }
+                />
               ))}
             </div>
           </div>

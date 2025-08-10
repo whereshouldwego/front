@@ -1,7 +1,6 @@
 // API 서비스 파일
 import type {
   Restaurant,
-  SearchResponse,
   ChatRequest,
   ChatResponse,
   LocationUpdateRequest,
@@ -75,7 +74,7 @@ async function apiRequest<T>(
     }
     return { success: true, data: (data as unknown as T) ?? (null as T) };
   } catch (error) {
-    console.error('[API ERR] ${endpoint}', error);
+    console.error(`[API ERR] ${endpoint}`, error);
     return {
       success: false,
       error: {
@@ -238,11 +237,11 @@ const toRestaurant = (doc: any): Restaurant => ({
   placeId: Number(doc.id),
   name: doc.place_name,
   category: doc.category_name,
-  distance: doc.distance ? `${(Number(doc.distance) / 1000).toFixed(1)}km` : '거리 정보 없음',
+  distanceText: doc.distance ? `${(Number(doc.distance) / 1000).toFixed(1)}km` : '거리 정보 없음',
   location: { lat: Number(doc.y), lng: Number(doc.x), address: doc.address_name, roadAddress: doc.road_address_name },
   phone: doc.phone,
-  isFavorite: false,
-  isCandidate: false,
+  summary: doc.aiSummary,
+  description: doc.aiSummary ?? undefined,
 });
 
 // 통합 검색 API
@@ -402,7 +401,7 @@ export const voteAPI = {
 export const chatAPI = {
   // 채팅 메시지 전송
   sendMessage: async (request: ChatRequest): Promise<ApiResponse<ChatResponse>> => {
-    return apiRequest<ChatResponse>('/chat', {
+    return apiRequest<ChatResponse>('/api/chat', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -410,7 +409,7 @@ export const chatAPI = {
 
   // 채팅 히스토리 조회
   getHistory: async (userId: number): Promise<ApiResponse<ChatResponse>> => {
-    return apiRequest<ChatResponse>(`/chat/history/${userId}`, {
+    return apiRequest<ChatResponse>(`/api/chat/history/${userId}`, {
       method: 'GET',
     });
   },
@@ -421,17 +420,16 @@ export const chatAPI = {
 export const locationAPI = {
   // 사용자 위치 업데이트
   updateLocation: async (request: LocationUpdateRequest): Promise<ApiResponse<LocationUpdateResponse>> => {
-    return apiRequest<LocationUpdateResponse>('/location', {
+    return apiRequest<LocationUpdateResponse>('/api/location', {
       method: 'PUT',
       body: JSON.stringify(request),
     });
   },
 
   // 현재 위치 기반 검색
-  searchNearby: async (lat: number, lng: number, radius: number = 5): Promise<ApiResponse<SearchResponse>> => {
-    return apiRequest<SearchResponse>(`/search/nearby?lat=${lat}&lng=${lng}&radius=${radius}`, {
-      method: 'GET',
-    });
+  searchNearbyLocal: async (lat: number, lng: number, radiusKm = 5) => {
+    const items = await integratedSearchAPI.searchByLocation({ lat, lng }, { radiusKm });
+    return { success: true, data: items } as const;
   },
 };
 

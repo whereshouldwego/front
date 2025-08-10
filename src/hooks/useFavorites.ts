@@ -1,39 +1,60 @@
+// src/hooks/useFavorites.ts
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { favoriteAPI, placeAPI } from '../lib/api';
+import type { Restaurant, LocalDetail } from '../types';
+import { localDetailToRestaurant } from '../utils/location';
+
 /**
  * useFavorites
- * - 즐겨찾기 목록 동기화/추가/삭제
- * - 삭제는 favoriteId가 필요 → 목록에서 찾아 매핑
+ * - curl 명세 그대로: GET /api/favorites/{userId}, DELETE /api/favorites/{favoriteId}
+ * - 목록 → place 상세 보강(간단)까지 처리
+ * - FavoritePanel에서 그대로 사용 가능
  */
-import { useCallback, useEffect, useState } from 'react';
-import { favoriteAPI } from '../lib/api';
-import type { FavoriteInfo } from '../types';
-
-export function useFavorites(userId: number | undefined) {
-  const [items, setItems] = useState<FavoriteInfo[]>([]);
+export function useFavorites(userId?: number) {
+  const uid = userId ?? 1; // TODO: 실제 로그인 컨텍스트 연결 시 교체
   const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState<string | null>(null);
+  const [items, setItems]   = useState<Restaurant[]>([]);
 
-  const refresh = useCallback(async () => {
-    if (!userId) return;
+  const fetchFavorites = useCallback(async () => {
     setLoading(true);
-    const res = await favoriteAPI.listByUser(userId);
-    if (res.success) setItems(res.data);
-    setLoading(false);
-  }, [userId]);
+    setError(null);
+    try {
+      const res = await favoriteAPI.listByUser(uid);
+      if (!res.success) throw new Error(res.error.message);
 
-  const add = useCallback(async (placeId: number) => {
-    if (!userId) return;
-    const res = await favoriteAPI.create({ userId, placeId });
-    if (res.success) setItems(prev => [res.data, ...prev]);
-  }, [userId]);
+      // 서버가 준 favorites: FavoriteInfo[] → place 상세 보강
+      const list = await Promise.all(
+        res.data.map(async (f) => {
+          const d = await placeAPI.getPlaceById(f.placeId);
+          if (d.success) {
+            return localDetailToRestaurant(d.data as LocalDetail);
+          }
+          // 상세 실패 시 최소 보정
+          return {
+            placeId: f.placeId,
+            name: `place #${f.placeId}`,
+            category: '', // 필수 string 보정
+            location: { lat: Number.NaN, lng: Number.NaN },
+          } as Restaurant;
+        })
+      );
 
-  const removeByPlaceId = useCallback(async (placeId: number) => {
-    // favoriteId 매핑 필요
-    const target = items.find(i => i.placeId === placeId);
-    if (!target) return;
-    const res = await favoriteAPI.remove(target.favoriteId);
-    if (res.success) setItems(prev => prev.filter(i => i.favoriteId !== target.favoriteId));
-  }, [items]);
+      setItems(list);
+    } catch (e: any) {
+      setError(e?.message || '찜 목록을 불러오는 중 오류가 발생했습니다.');
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [uid]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { void fetchFavorites(); }, [fetchFavorites]);
 
-  return { items, loading, refresh, add, removeByPlaceId };
+  const placeIds = useMemo(() => items.map(r => r.placeId), [items]);
+
+  return { items, placeIds, loading, error, refresh: fetchFavorites };
 }
+
+
+export type UseFavoritesReturn = ReturnType<typeof useFavorites>;

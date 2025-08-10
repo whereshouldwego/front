@@ -19,8 +19,7 @@ import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
 import ChatSection from '../chat/ChatSection';
 import styles from './RoomPage.module.css';
-import type { MapCenter, MapEventHandlers, MapMarker, UserProfile } from '../../types';
-import { restaurantData } from '../../data/restaurantData';
+import type { MapCenter, MapEventHandlers, UserProfile } from '../../types';
 
 interface RoomData {
   id: string;
@@ -318,7 +317,7 @@ const RoomPage: React.FC = () => {
 // RoomPage용 메인 콘텐츠 컴포넌트 - 현위치 검색 기능 추가
 const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
   // useSidebar 훅 추가
-  const { searchResults, recommendations, favorites, votes, performSearch } = useSidebar();
+  const { performSearch } = useSidebar();
   
   //  현위치 검색 버튼 표시 상태
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
@@ -342,31 +341,31 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
   ]);
 
   // 지도 마커 데이터 (사이드바 결과 반영)
-  const mapMarkers: MapMarker[] = React.useMemo(() => {
-    let restaurants = restaurantData.search || [];
+  // const mapMarkers: MapMarker[] = React.useMemo(() => {
+  //   let restaurants = restaurantData.search || [];
     
-    // 활성 패널에 따른 데이터 선택
-    if (searchResults.length > 0) {
-      restaurants = searchResults;
-    } else if (recommendations.length > 0) {
-      restaurants = recommendations;
-    } else if (favorites.length > 0) {
-      restaurants = favorites;
-    } else if (votes.length > 0) {
-      restaurants = votes;
-    }
+  //   // 활성 패널에 따른 데이터 선택
+  //   if (searchResults.length > 0) {
+  //     restaurants = searchResults;
+  //   } else if (recommendations.length > 0) {
+  //     restaurants = recommendations;
+  //   } else if (favorites.length > 0) {
+  //     restaurants = favorites;
+  //   } else if (votes.length > 0) {
+  //     restaurants = votes;
+  //   }
 
-    return restaurants.map(restaurant => ({
-      id: restaurant.id,
-      position: {
-        lat: restaurant.location.lat,
-        lng: restaurant.location.lng
-      },
-      title: restaurant.name,
-      category: restaurant.category,
-      restaurant: restaurant
-    }));
-  }, [searchResults, recommendations, favorites, votes]);
+  //   return restaurants.map(restaurant => ({
+  //     id: restaurant.placeId,
+  //     position: {
+  //       lat: restaurant.location.lat,
+  //       lng: restaurant.location.lng
+  //     },
+  //     title: restaurant.name,
+  //     category: restaurant.category,
+  //     restaurant: restaurant
+  //   }));
+  // }, [searchResults, recommendations, favorites, votes]);
 
   // 이벤트 핸들러들
   const handleAuroraToggle = (isActive: boolean) => {
@@ -455,7 +454,7 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
       }}
     >
       <MapContainer
-        markers={mapMarkers}
+        // markers={mapMarkers}
         eventHandlers={mapEventHandlers}
         onMapMoved={handleMapMoved}
       />

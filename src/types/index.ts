@@ -68,13 +68,56 @@ export interface Restaurant {
   location: {
     lat: number;
     lng: number;
-    address?: string;
-    roadAddress?: string };
+    address?: string | null;
+    roadAddress?: string | null;
+  };
   phone?: string;
   summary?: string;
   reviewCount?: number;
   // isFavorite?: boolean;
   // isCandidate?: boolean;
+}
+
+// ✅ 백엔드 place 상세 응답 (LocalDetail = 서버 스키마)
+export interface LocalDetail {
+  id: number;                    // = placeId
+  name?: string | null;
+  categoryName?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  roadAddress?: string | null;
+  lat?: number | null;           // 서버가 줄 수도/안 줄 수도 → optional
+  lng?: number | null;
+  aiSummary?: string | null;
+}
+
+// ✅ 즐겨찾기 API
+export interface FavoriteCreateBody {
+  userId: number;
+  placeId: number;
+}
+export interface FavoriteInfo {
+  favoriteId: number;
+  userId: number;
+  placeId: number;
+  createdAt?: string;
+}
+
+export function localDetailToRestaurant(d: LocalDetail): Restaurant {
+  return {
+    placeId: d.id,
+    name: d.name ?? `place #${d.id}`,
+    category: d.categoryName ?? '',
+    phone: d.phone ?? undefined,
+    location: {
+      lat: typeof d.lat === 'number' ? d.lat : Number.NaN,   // 좌표 미존재면 NaN (마커 만들 때 필터)
+      lng: typeof d.lng === 'number' ? d.lng : Number.NaN,
+      address: d.address ?? undefined,
+      roadAddress: d.roadAddress ?? undefined,
+    },
+    summary: d.aiSummary ?? undefined,
+    description: d.aiSummary ?? undefined,
+  };
 }
 
 // ===== 카카오맵 관련 타입들 =====
@@ -189,6 +232,8 @@ export interface ChatMessage {
   userId: number;
   content: string;
   createdAt: string;     // ISO
+  type?: 'user' | 'bot';
+  timestamp?: string;
 }
 
 // 추천 요청 타입

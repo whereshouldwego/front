@@ -81,7 +81,7 @@ export const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) =>
         restaurants = await integratedSearchAPI.searchAndEnrich(
           params.query,
           center,
-          { radius: 5, sort: 'accuracy' }
+          { roomCode: undefined }
         );
       } else if (params.location) {
         // 위치 기반 검색
@@ -92,7 +92,7 @@ export const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) =>
         
         restaurants = await integratedSearchAPI.searchByLocation(
           center,
-          { radius: 3, sort: 'distance' }
+          { roomCode: undefined, radiusKm: 3 }
         );
       }
       

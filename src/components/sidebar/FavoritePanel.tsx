@@ -9,22 +9,22 @@
  * - 로딩 및 에러 상태 처리
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { PANEL_CONFIGS, LOADING_MESSAGES, EMPTY_MESSAGES } from '../../constants/sidebar';
-import type { Restaurant } from '../../types';
-import RestaurantCard from '../ui/RestaurantCard';
 import styles from './SidebarPanels.module.css';
+
+import RestaurantCard from '../ui/RestaurantCard';
 import ActionButtons from '../ui/ActionButtons';
-import { useRestaurantStore } from '../../stores/RestaurantStore';
 
-const FavoritePanel: React.FC<{ userId: number }> = ({ userId }) => {
-  const { getFavorites, isFavorited, toggleFavorite, hydrateFavorites } = useRestaurantStore();
-  const favorites = getFavorites();
+import { useFavorites } from '../../hooks/useFavorites';
 
-  // 컴포넌트 마운트 시 찜한 맛집 데이터 가져오기
-  useEffect(() => {
-    void hydrateFavorites(userId);
-  }, [userId, hydrateFavorites]);
+interface Props {
+  userId: number;
+}
+
+const FavoritePanel: React.FC<Props> = ({ userId }) => {
+  const uid = userId ?? 1; // TODO: 실제 로그인 연동 시 교체
+  const { items, loading, error } = useFavorites(uid);
 
   return (
     <div className={styles.panelContent}>
@@ -40,7 +40,7 @@ const FavoritePanel: React.FC<{ userId: number }> = ({ userId }) => {
       {/* 패널 바디 */}
       <div className={styles.panelBody}>
         {/* 로딩 상태 */}
-        {isLoading && (
+        {loading && (
           <div className={styles.loadingState}>
             <div className={styles.spinner}></div>
             <p>{LOADING_MESSAGES.LOADING}</p>
@@ -55,33 +55,33 @@ const FavoritePanel: React.FC<{ userId: number }> = ({ userId }) => {
         )}
 
         {/* 찜한 맛집 결과 */}
-        {!isLoading && !error && favorites.length > 0 && (
+        {!loading && !error && items.length > 0 && (
           <div className={styles.resultsContainer}>
             <div className={styles.resultsHeader}>
-              <span>찜한 맛집 ({favorites.length}개)</span>
+              <span>찜한 맛집 ({items.length}개)</span>
             </div>
             <div className={styles.restaurantCards}>
-              {favorites.map((restaurant) => (
-                <div key={restaurant.id} className={styles.favoriteItem}>
+              {items.map((restaurant) => (
+                <div key={restaurant.placeId} className={styles.favoriteItem}>
                   <RestaurantCard
-                    restaurant={restaurant}
+                    data={restaurant}
                     className={styles.restaurantCard}
-                  >
-                    <ActionButtons
-                      restaurantId={restaurant.id}
-                      showFavoriteButton={true}
-                      onFavoriteClick={handleFavoriteClick}
-                      isFavorited={true}
-                    />
-                  </RestaurantCard>
-                </div>
+                    actions={
+                      <ActionButtons
+                        userId={userId}
+                        placeId={restaurant.placeId}
+                        showFavoriteButton
+                      />
+                    }
+                  />
+              </div>
               ))}
             </div>
           </div>
         )}
 
         {/* 빈 상태 */}
-        {!isLoading && !error && favorites.length === 0 && (
+        {!loading && !error && items.length === 0 && (
           <div className={styles.emptyState}>
             <p>{EMPTY_MESSAGES.favorite}</p>
           </div>

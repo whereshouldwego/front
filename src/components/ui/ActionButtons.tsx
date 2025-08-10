@@ -13,9 +13,7 @@ interface Props {
 const ActionButtons: React.FC<Props> = ({
   userId,
   placeId,
-  showFavoriteButton = false,
-  showVoteButton = false,
-  showCandidateButton = false,
+  showFavoriteButton, showVoteButton, showCandidateButton,
 }) => {
   const {
     isFavorited,
@@ -34,7 +32,7 @@ const ActionButtons: React.FC<Props> = ({
     <div className={styles.actionButtons}>
       {showFavoriteButton && (
         <button
-          className={`${styles.actionButton} ${styles.favoriteButton} ${isFavorited ? styles.active : ''}`}
+          className={`${styles.actionButton} ${styles.favoriteButton} ${isFavorited(placeId) ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
             void toggleFavorite(placeId, userId);
@@ -47,7 +45,7 @@ const ActionButtons: React.FC<Props> = ({
       
       {showVoteButton && (
         <button
-          className={`${styles.actionButton} ${styles.voteButton} ${isVoted ? styles.active : ''}`}
+          className={`${styles.actionButton} ${styles.voteButton} ${isVoted(placeId) ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
             toggleVote(placeId); // 서버 미구현: 로컬만

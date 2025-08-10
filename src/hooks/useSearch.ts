@@ -1,42 +1,41 @@
-/**
- * useSearch.ts
- * - 카카오 키워드/위치 검색
- * - 후보 제외 필터링 (roomCode 기반)
- * - place 상세(백엔드)로 보강
- */
-
+// src/hooks/useSearch.ts
 import { useCallback, useState } from 'react';
+import type { Restaurant, MapCenter } from '../types';
 import { integratedSearchAPI } from '../lib/api';
-import type { MapCenter, Restaurant } from '../types';
 
 export function useSearch(roomCode?: string) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
   const [results, setResults] = useState<Restaurant[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // 키워드 검색
   const searchByKeyword = useCallback(async (q: string, center?: MapCenter) => {
-    setLoading(true); setError(null);
-    const data = await integratedSearchAPI.searchAndEnrich(q, center, { roomCode });
-    setResults(data);
-    setLoading(false);
-    return data;
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await integratedSearchAPI.searchAndEnrich(q, center, { roomCode });
+      setResults(list);
+    } catch (e: any) {
+      console.error('[useSearch] keyword error', e);
+      setError('검색 중 오류가 발생했어요.');
+    } finally {
+      setLoading(false);
+    }
   }, [roomCode]);
 
-  // 위치 기반(초기/현위치)
   const searchByLocation = useCallback(async (center: MapCenter) => {
-    setLoading(true); setError(null);
-    const data = await integratedSearchAPI.searchByLocation(center, { roomCode });
-    setResults(data);
-    setLoading(false);
-    return data;
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await integratedSearchAPI.searchByLocation(center, { roomCode, radiusKm: 3 });
+      setResults(list);
+    } catch (e: any) {
+      console.error('[useSearch] location error', e);
+      setError('위치 기반 검색 중 오류가 발생했어요.');
+    } finally {
+      setLoading(false);
+    }
   }, [roomCode]);
 
-  return {
-    results,
-    loading,
-    error,
-    searchByKeyword,
-    searchByLocation,
-  };
+  return { results, loading, error, searchByKeyword, searchByLocation };
 }
+export type UseSearchReturn = ReturnType<typeof useSearch>;
