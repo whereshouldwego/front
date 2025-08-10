@@ -28,17 +28,20 @@ interface SidebarPanelsProps {
 }
 
 const SidebarPanels: React.FC<SidebarPanelsProps> = ({ activePanel }) => {
+  const userId = Number(localStorage.getItem('userId') || 0); // 예시
+  const roomCode = 'ROOM-123'; // 예시: 상위에서 가져오세요
+  const center = undefined;    // 지도 센터 있으면 넣기
   // 활성 패널에 따른 컴포넌트 렌더링
   const renderActivePanel = () => {
     switch (activePanel) {
       case 'search':
-        return <SearchPanel />;
+        return <SearchPanel roomCode={roomCode} center={center} userId={userId} />;
       case 'recommend':
         return <RecommendPanel />;
       case 'candidate':
         return <CandidatePanel />;
       case 'favorite':
-        return <FavoritePanel />;
+        return <FavoritePanel userId={userId} />;
       default:
         return <SearchPanel />;
     }

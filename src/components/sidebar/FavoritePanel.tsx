@@ -15,72 +15,16 @@ import type { Restaurant } from '../../types';
 import RestaurantCard from '../ui/RestaurantCard';
 import styles from './SidebarPanels.module.css';
 import ActionButtons from '../ui/ActionButtons';
+import { useRestaurantStore } from '../../stores/RestaurantStore';
 
-const FavoritePanel: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<Restaurant[]>([]);
-
-  const handleFavoriteClick = (restaurantId: string) => {
-    setFavorites(prev => prev.filter(favorite => favorite.id !== restaurantId));
-  };
+const FavoritePanel: React.FC<{ userId: number }> = ({ userId }) => {
+  const { getFavorites, isFavorited, toggleFavorite, hydrateFavorites } = useRestaurantStore();
+  const favorites = getFavorites();
 
   // 컴포넌트 마운트 시 찜한 맛집 데이터 가져오기
   useEffect(() => {
-    const getFavorites = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        // 실제 API 호출 대신 임시 데이터 사용
-        const mockFavorites: Restaurant[] = [
-          {
-            id: 'fav1',
-            name: '찜한 맛집 1',
-            category: '한식',
-            distance: '100m',
-            description: '맛있는 한식집',
-            tags: ['한식', '가정식'],
-            location: {
-              lat: 37.5002,
-              lng: 127.0364,
-              address: '서울 강남구 강남대로 123'
-            },
-            phone: '02-6666-7777',
-            isFavorite: true,
-            isCandidate: false
-          },
-          {
-            id: 'fav2',
-            name: '찜한 맛집 2',
-            category: '카페',
-            distance: '200m',
-            description: '분위기 좋은 카페',
-            tags: ['카페', '커피'],
-            location: {
-              lat: 37.5005,
-              lng: 127.0368,
-              address: '서울 강남구 강남대로 456'
-            },
-            phone: '02-7777-8888',
-            isFavorite: true,
-            isCandidate: false
-          }
-        ];
-        
-        // 로딩 시뮬레이션
-        await new Promise(resolve => setTimeout(resolve, 600));
-        
-        setFavorites(mockFavorites);
-      } catch (err) {
-        setError('찜한 맛집 데이터를 불러오는 중 오류가 발생했습니다.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    getFavorites();
-  }, []);
+    void hydrateFavorites(userId);
+  }, [userId, hydrateFavorites]);
 
   return (
     <div className={styles.panelContent}>

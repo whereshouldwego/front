@@ -1,30 +1,37 @@
 // API 서비스 파일
 import type {
   Restaurant,
-  SearchRequest,
   SearchResponse,
-  RecommendRequest,
-  RecommendResponse,
-  FavoriteRequest,
-  FavoriteResponse,
-  VoteRequest,
-  VoteResponse,
   ChatRequest,
   ChatResponse,
   LocationUpdateRequest,
   LocationUpdateResponse,
-  PlaceApiResponse,
   ApiResponse,
   ApiError,
   KakaoMapApiResponse,
   KakaoSearchRequest,
   KakaoCategorySearchRequest,
-  MapCenter
+  MapCenter,
+  PlaceDetail,
+  FavoriteCreateBody,
+  FavoriteInfo,
+  CandidateHistoryItem,
 } from '../types';
 
 // API 기본 설정
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_MAP_REST_API_KEY;
+
+// ===== 공통 유틸: 안전 JSON 파서 =====
+async function safeJson<T>(response: Response): Promise<T | null> {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
 
 // ===== 공통 API 요청 함수들 =====
 
@@ -35,6 +42,7 @@ async function apiRequest<T>(
 ): Promise<ApiResponse<T>> {
   try {
     const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`[API REQ] ${options.method || 'GET'} ${url}`, options.body ? JSON.parse(options.body as string) : '');
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
@@ -43,21 +51,31 @@ async function apiRequest<T>(
       ...options,
     });
 
-    const data = await response.json();
+    const data = await safeJson<ApiResponse<T>>(response);
+    console.log(`[API RES] ${response.status} ${url}`, data);
 
     if (!response.ok) {
+      const message =
+        (data as any)?.error?.message ||
+        (data as any)?.message ||
+        `API 요청 실패 (${response.status})`;
       return {
         success: false,
         error: {
           code: response.status.toString(),
-          message: data.message || 'API 요청 실패',
-          details: data,
+          message,
+          details: data ?? null,
         },
       };
     }
-
-    return data;
+    // 서버가 {success:true,data} 형태를 반환한다고 가정.
+    // 만약 서버가 순수 데이터만 반환한다면 여기서 래핑.
+    if (data && typeof (data as any).success === 'boolean') {
+      return data as ApiResponse<T>;
+    }
+    return { success: true, data: (data as unknown as T) ?? (null as T) };
   } catch (error) {
+    console.error('[API ERR] ${endpoint}', error);
     return {
       success: false,
       error: {
@@ -68,6 +86,7 @@ async function apiRequest<T>(
     };
   }
 }
+
 
 // 카카오맵 API 요청 함수
 async function kakaoApiRequest<T>(
@@ -208,194 +227,174 @@ export const kakaoMapAPI = {
 // ===== 백엔드 Place API =====
 
 export const placeAPI = {
-  // 장소 상세 정보 조회 (카드 클릭 시 사용)
-  getPlaceById: async (placeId: string): Promise<ApiResponse<PlaceApiResponse>> => {
-    return apiRequest<PlaceApiResponse>(`/places/${placeId}`, {
-      method: 'GET',
-    });
-  },
-
-  // 장소 정보 생성/업데이트
-  createOrUpdatePlace: async (request: any): Promise<ApiResponse<PlaceApiResponse>> => {
-    return apiRequest<PlaceApiResponse>('/places', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  },
-
-  // 장소 검색 (백엔드)
-  searchPlaces: async (query: string, location?: string): Promise<ApiResponse<PlaceApiResponse>> => {
-    return apiRequest<PlaceApiResponse>(`/places/search?query=${encodeURIComponent(query)}`, {
-      method: 'GET',
-      headers: {
-        ...(location && { 'Location': location }),
-      },
-    });
+  /** GET /api/places/{placeId} */
+  getPlaceById: async (placeId: number): Promise<ApiResponse<PlaceDetail>> => {
+    return apiRequest<PlaceDetail>(`/api/places/${placeId}`, { method: 'GET' });
   },
 };
 
 // 카카오맵 결과를 Restaurant 타입으로 변환
-const convertKakaoDocumentToRestaurant = (doc: any): Restaurant => {
-  return {
-    id: doc.id,
-    name: doc.place_name,
-    category: doc.category_name,
-    distance: doc.distance ? `${(parseInt(doc.distance) / 1000).toFixed(1)}km` : '거리 정보 없음',
-    description: '맛있는 맛집입니다.', // 기본값
-    tags: [], // 기본값
-    location: {
-      lat: parseFloat(doc.y),
-      lng: parseFloat(doc.x),
-      address: doc.address_name
-    },
-    phone: doc.phone,
-    isFavorite: false,
-    isCandidate: false
-  };
-};
+const toRestaurant = (doc: any): Restaurant => ({
+  placeId: Number(doc.id),
+  name: doc.place_name,
+  category: doc.category_name,
+  distance: doc.distance ? `${(Number(doc.distance) / 1000).toFixed(1)}km` : '거리 정보 없음',
+  location: { lat: Number(doc.y), lng: Number(doc.x), address: doc.address_name, roadAddress: doc.road_address_name },
+  phone: doc.phone,
+  isFavorite: false,
+  isCandidate: false,
+});
 
 // 통합 검색 API
 export const integratedSearchAPI = {
   // 키워드 검색 및 데이터 보강
-  searchAndEnrich: async (query: string, center?: MapCenter, filter?: any): Promise<Restaurant[]> => {
+  searchAndEnrich: async (
+    query: string,
+    center?: MapCenter,
+    opts?: { roomCode?: string }
+  ): Promise<Restaurant[]> => {
     try {
-      // 키워드 검색 (카페와 식당만)
-      const searchResponse = await kakaoMapAPI.searchByKeyword({
+      // 1) 후보 제외용 집합
+      let excluded = new Set<number>();
+      if (opts?.roomCode) {
+        const hist = await candidateAPI.history(opts.roomCode);
+        if (hist.success) excluded = new Set(hist.data.map(i => Number(i.place.id)));
+      }
+
+      // 2) 카카오에서 10개
+      const kakao = await kakaoMapAPI.searchByKeyword({
         query,
-        x: center?.lng?.toString(),
-        y: center?.lat?.toString(),
-        radius: filter?.radius ? filter.radius * 1000 : 5000,
-        size: 15,
-        sort: filter?.sort || 'accuracy'
+        category_group_code: 'FD6',
+        x: center?.lng ? String(center.lng) : undefined,
+        y: center?.lat ? String(center.lat) : undefined,
+        size: 10,
+        sort: center ? 'distance' : 'accuracy',
       });
-      
-      // 카카오맵 결과를 Restaurant 타입으로 변환
-      const restaurants = searchResponse.documents.map(convertKakaoDocumentToRestaurant);
-      
-      return restaurants;
-    } catch (error) {
-      console.error('통합 검색 실패:', error);
+
+      // 3) 후보 제외
+      const docs = kakao.documents.filter(d => !excluded.has(Number(d.id)));
+
+      // 4) 백엔드 상세 보강
+      const base = docs.map(toRestaurant);
+      const enriched = await Promise.all(
+        base.map(async (r) => {
+          const detail = await placeAPI.getPlaceById(r.placeId);
+          if (detail.success) {
+            const d = detail.data;
+            return {
+              ...r,
+              name: d.name || r.name,
+              category: d.categoryName || r.category,
+              phone: d.phone || r.phone,
+              location: {
+                ...r.location,
+                address: d.address ?? r.location.address,
+                roadAddress: d.roadAddress ?? r.location.roadAddress,
+              },
+              summary: d.aiSummary,
+              description: d.aiSummary ?? undefined,
+            } as Restaurant;
+          }
+          return r;
+        })
+      );
+      return enriched;
+    } catch (e) {
+      console.warn('[integratedSearchAPI] 실패:', e);
       return [];
     }
   },
 
-  // 위치 기반 검색 (초기 검색용)
-  searchByLocation: async (center: MapCenter, filter?: any): Promise<Restaurant[]> => {
+  /** 위치 기반(초기) + 보강 */
+  searchByLocation: async (
+    center: MapCenter,
+    opts?: { roomCode?: string; radiusKm?: number }
+  ): Promise<Restaurant[]> => {
     try {
-      const restaurants: Restaurant[] = [];
-      
-      // 식당 검색
-      const restaurantResponse = await kakaoMapAPI.searchByCategoryWithParams({
-        category_group_code: 'FD6', // 음식점
-        x: center.lng.toString(),
-        y: center.lat.toString(),
-        radius: filter?.radius ? filter.radius * 1000 : 3000,
+      let excluded = new Set<number>();
+      if (opts?.roomCode) {
+        const hist = await candidateAPI.history(opts.roomCode);
+        if (hist.success) excluded = new Set(hist.data.map(i => Number(i.place.id)));
+      }
+
+      const kakao = await kakaoMapAPI.searchByCategoryWithParams({
+        category_group_code: 'FD6',
+        x: String(center.lng),
+        y: String(center.lat),
+        radius: (opts?.radiusKm ?? 3) * 1000,
         size: 10,
-        sort: 'distance'
+        sort: 'distance',
       });
-      
-      restaurants.push(...restaurantResponse.documents.map(convertKakaoDocumentToRestaurant));
-      
-      // 카페 검색
-      const cafeResponse = await kakaoMapAPI.searchByCategoryWithParams({
-        category_group_code: 'CE7', // 카페
-        x: center.lng.toString(),
-        y: center.lat.toString(),
-        radius: filter?.radius ? filter.radius * 1000 : 3000,
-        size: 10,
-        sort: 'distance'
-      });
-      
-      restaurants.push(...cafeResponse.documents.map(convertKakaoDocumentToRestaurant));
-      
-      return restaurants;
-    } catch (error) {
-      console.error('위치 기반 검색 실패:', error);
+
+      const docs = kakao.documents.filter(d => !excluded.has(Number(d.id)));
+      const base = docs.map(toRestaurant);
+
+      const enriched = await Promise.all(
+        base.map(async (r) => {
+          const detail = await placeAPI.getPlaceById(r.placeId);
+          if (detail.success) {
+            const d = detail.data;
+            return {
+              ...r,
+              name: d.name || r.name,
+              category: d.categoryName || r.category,
+              phone: d.phone || r.phone,
+              location: { ...r.location, address: d.address, roadAddress: d.roadAddress },
+              summary: d.aiSummary,
+              description: d.aiSummary || r.description,
+            } as Restaurant;
+          }
+          return r;
+        })
+      );
+      return enriched;
+    } catch (e) {
+      console.warn('[integratedSearchAPI] 위치 기반 실패:', e);
       return [];
     }
-  }
-};
-
-// ===== 검색 관련 API =====
-
-export const searchAPI = {
-  // 레스토랑 검색
-  search: async (request: SearchRequest): Promise<ApiResponse<SearchResponse>> => {
-    return apiRequest<SearchResponse>('/search', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  },
-
-  // 카테고리별 검색
-  searchByCategory: async (category: string, location?: string): Promise<ApiResponse<SearchResponse>> => {
-    return apiRequest<SearchResponse>(`/search/category/${category}`, {
-      method: 'GET',
-      headers: {
-        'Location': location || '',
-      },
-    });
-  },
-};
-
-// ===== 추천 관련 API =====
-
-export const recommendAPI = {
-  // 개인화 추천
-  getRecommendations: async (request: RecommendRequest): Promise<ApiResponse<RecommendResponse>> => {
-    return apiRequest<RecommendResponse>('/recommend', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  },
-
-  // 인기 추천
-  getPopular: async (location: string): Promise<ApiResponse<RecommendResponse>> => {
-    return apiRequest<RecommendResponse>(`/recommend/popular`, {
-      method: 'GET',
-      headers: {
-        'Location': location,
-      },
-    });
   },
 };
 
 // ===== 찜하기 관련 API =====
-
 export const favoriteAPI = {
-  // 찜하기 추가/제거
-  toggleFavorite: async (request: FavoriteRequest): Promise<ApiResponse<FavoriteResponse>> => {
-    return apiRequest<FavoriteResponse>('/favorites', {
+  /** POST /api/favorites  body:{ userId, placeId } */
+  create: async (body: FavoriteCreateBody): Promise<ApiResponse<FavoriteInfo>> => {
+    return apiRequest<FavoriteInfo>('/api/favorites', {
       method: 'POST',
-      body: JSON.stringify(request),
+      body: JSON.stringify(body),
     });
   },
 
-  // 찜한 목록 조회
-  getFavorites: async (userId: string): Promise<ApiResponse<FavoriteResponse>> => {
-    return apiRequest<FavoriteResponse>(`/favorites/${userId}`, {
+  /** GET /api/favorites/{userId} */
+  listByUser: async (userId: number): Promise<ApiResponse<FavoriteInfo[]>> => {
+    return apiRequest<FavoriteInfo[]>(`/api/favorites/${userId}`, { method: 'GET' });
+  },
+
+  /** DELETE /api/favorites/{favoriteId} */
+  remove: async (favoriteId: number): Promise<ApiResponse<null>> => {
+    return apiRequest<null>(`/api/favorites/${favoriteId}`, { method: 'DELETE' });
+  },
+};
+
+// ===== 후보 관련 API =====
+export const candidateAPI = {
+  /** GET /api/candidate/history/{roomCode} */
+  history: async (roomCode: string): Promise<ApiResponse<CandidateHistoryItem[]>> => {
+    return apiRequest<CandidateHistoryItem[]>(`/api/candidate/history/${encodeURIComponent(roomCode)}`, {
       method: 'GET',
     });
   },
+
+  /** (참고) 후보 생성/삭제 엔드포인트는 현재 스웨거 캡쳐에 없음 (추후 명세 확인 요망) */
+  // createCandidate: ... // (추후 명세 확인 요망)
+  // deleteCandidate: ... // (추후 명세 확인 요망)
 };
 
 // ===== 투표 관련 API =====
 
 export const voteAPI = {
-  // 투표하기/취소
-  toggleVote: async (request: VoteRequest): Promise<ApiResponse<VoteResponse>> => {
-    return apiRequest<VoteResponse>('/votes', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
-  },
-
-  // 투표 결과 조회
-  getVoteResults: async (): Promise<ApiResponse<VoteResponse>> => {
-    return apiRequest<VoteResponse>('/votes/results', {
-      method: 'GET',
-    });
-  },
+  // POST /api/votes, DELETE /api/votes/{voteId} 등은 아직 스웨거 미정
+  // (추후 명세 확인 요망)
 };
 
 // ===== 채팅 관련 API =====
@@ -410,7 +409,7 @@ export const chatAPI = {
   },
 
   // 채팅 히스토리 조회
-  getHistory: async (userId: string): Promise<ApiResponse<ChatResponse>> => {
+  getHistory: async (userId: number): Promise<ApiResponse<ChatResponse>> => {
     return apiRequest<ChatResponse>(`/chat/history/${userId}`, {
       method: 'GET',
     });

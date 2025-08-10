@@ -14,81 +14,49 @@ import React from 'react';
 import type { Restaurant } from '../../types';
 import styles from './RestaurantCard.module.css';
 
-interface RestaurantCardProps {
-  restaurant: Restaurant;
+interface Props {
+  data: Restaurant;
   className?: string;
-  children?: React.ReactNode;
+  actions?: React.ReactNode;
 }
 
-const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurant, className, children }) => (
-  <div className={`${styles.restaurantCard} ${className || ''}`}>
-    <div className={styles.header}>
-      <h3 className={styles.name}>{restaurant.name}</h3>
-      <span className={styles.category}>{restaurant.category}</span>
+const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
+  return (
+    <div className={`${styles.restaurantCard} ${className || ''}`}>
+      <div className={styles.header}>
+        <h3 className={styles.name}>{data.name}</h3>
+      <span className={styles.category}>{data.category}</span>
     </div>
     
     <div className={styles.details}>
       <div className={styles.infoRow}>
-        <span className={styles.address}>{restaurant.location.address}</span>
+        <span className={styles.address}>{data.location.roadAddress || data.location.address || ''}</span>
       </div>
       
-      {restaurant.phone && (
+      {data.phone && (
         <div className={styles.infoRow}>
-          <span className={styles.phone}>{restaurant.phone}</span>
+          <span className={styles.phone}>{data.phone}</span>
         </div>
       )}
       
-      <div className={styles.infoRow}>
-        <span className={styles.distance}>{restaurant.distance}</span>
+      {data.distanceText && (
+          <div className={styles.infoRow}>
+            <span className={styles.distance}>{data.distanceText}</span>
+          </div>
+        )}
+
+        {data.description && <p className={styles.description}>{data.description}</p>}
       </div>
-      
-      {restaurant.description && (
-        <p className={styles.description}>{restaurant.description}</p>
-      )}
-      
-      {restaurant.tags && restaurant.tags.length > 0 && (
-        <div className={styles.tags}>
-          {restaurant.tags.map((tag, index) => (
-            <span key={index} className={styles.tag}>{tag}</span>
-          ))}
+    
+      {data.summary && (
+        <div className={styles.summary}>
+          <h4 className={styles.summaryTitle}>AI 요약</h4>
+          <p className={styles.summaryText}>{data.summary}</p>
         </div>
       )}
+
+      {actions && <div className={styles.actions}>{actions}</div>}
     </div>
-    
-    {restaurant.summary && (
-      <div className={styles.summary}>
-        <h4 className={styles.summaryTitle}>AI 요약</h4>
-        <ul className={styles.summaryList}>
-          {restaurant.summary.menu && restaurant.summary.menu.length > 0 && (
-            <li className={styles.summaryItem}>
-              <strong>메뉴:</strong> {restaurant.summary.menu.join(', ')}
-            </li>
-          )}
-          {restaurant.summary.mood && restaurant.summary.mood.length > 0 && (
-            <li className={styles.summaryItem}>
-              <strong>분위기:</strong> {restaurant.summary.mood.join(', ')}
-            </li>
-          )}
-          {restaurant.summary.feature && restaurant.summary.feature.length > 0 && (
-            <li className={styles.summaryItem}>
-              <strong>특징:</strong> {restaurant.summary.feature.join(', ')}
-            </li>
-          )}
-          {restaurant.summary.purpose && restaurant.summary.purpose.length > 0 && (
-            <li className={styles.summaryItem}>
-              <strong>목적:</strong> {restaurant.summary.purpose.join(', ')}
-            </li>
-          )}
-        </ul>
-      </div>
     )}
-    
-    {children && (
-      <div className={styles.actions}>
-        {children}
-      </div>
-    )}
-  </div>
-);
 
 export default RestaurantCard; 

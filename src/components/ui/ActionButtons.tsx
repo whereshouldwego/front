@@ -1,32 +1,35 @@
 import React from 'react';
 import styles from './ActionButtons.module.css';
+import { useRestaurantStore } from '../../stores/RestaurantStore';
 
-interface ActionButtonsProps {
-  restaurantId: string;
+interface Props {
+  userId: number;           // 찜/투표에 필요
+  placeId: number;          // 숫자 ID 표준
   showFavoriteButton?: boolean;
   showVoteButton?: boolean;
   showCandidateButton?: boolean;
-  onFavoriteClick?: (restaurantId: string) => void;
-  onVoteClick?: (restaurantId: string) => void;
-  onCandidateClick?: (restaurantId: string) => void;
-  isFavorited?: boolean;
-  isVoted?: boolean;
-  isCandidate?: boolean;
-  voteCount?: number;
 }
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({
+const ActionButtons: React.FC<Props> = ({
+  userId,
+  placeId,
   showFavoriteButton = false,
   showVoteButton = false,
   showCandidateButton = false,
-  onFavoriteClick,
-  onVoteClick,
-  onCandidateClick,
-  isFavorited = false,
-  isVoted = false,
-  isCandidate = false,
-  restaurantId
 }) => {
+  const {
+    isFavorited,
+    isVoted,
+    isCandidate,
+    toggleFavorite,
+    toggleVote,
+    toggleCandidate,
+  } = useRestaurantStore();
+
+  const favOn = isFavorited(placeId);
+  const voteOn = isVoted(placeId);
+  const candOn = isCandidate(placeId);
+
   return (
     <div className={styles.actionButtons}>
       {showFavoriteButton && (
@@ -34,11 +37,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           className={`${styles.actionButton} ${styles.favoriteButton} ${isFavorited ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            onFavoriteClick?.(restaurantId);
+            void toggleFavorite(placeId, userId);
           }}
-          title={isFavorited ? '찜해제' : '찜하기'}
+          title={favOn ? '찜해제' : '찜하기'}
         >
-          {isFavorited ? '❤️' : '🤍'}
+          {favOn ? '❤️' : '🤍'}
         </button>
       )}
       
@@ -47,26 +50,26 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           className={`${styles.actionButton} ${styles.voteButton} ${isVoted ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            onVoteClick?.(restaurantId);
+            toggleVote(placeId); // 서버 미구현: 로컬만
           }}
-          title={isVoted ? '투표취소' : '투표하기'}
+          title={voteOn ? '투표취소' : '투표하기'}
         >
-          {isVoted ? '✅' : '🗳️'}
+          {voteOn ? '✅' : '🗳️'}
         </button>
       )}
       
       {showCandidateButton && (
         <button
-          className={`${styles.actionButton} ${styles.candidateButton} ${isCandidate ? styles.active : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onCandidateClick?.(restaurantId);
-          }}
-          title={isCandidate ? '후보제거' : '후보추가'}
-        >
-          {isCandidate ? '⭐' : '☆'}
-        </button>
-      )}
+        className={`${styles.actionButton} ${styles.candidateButton} ${candOn ? styles.active : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleCandidate(placeId); // 서버 미구현: 일단 경고 or no-op로 설계 가능
+        }}
+        title={candOn ? '후보제거' : '후보추가'}
+      >
+        {candOn ? '⭐' : '☆'}
+      </button>
+    )}
     </div>
   );
 };
