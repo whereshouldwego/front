@@ -3,17 +3,21 @@ import styles from './ActionButtons.module.css';
 import { useRestaurantStore } from '../../stores/RestaurantStore';
 
 interface Props {
-  userId: number;           // 찜/투표에 필요
-  placeId: number;          // 숫자 ID 표준
+  userId: number;
+  placeId: number;
   showFavoriteButton?: boolean;
   showVoteButton?: boolean;
   showCandidateButton?: boolean;
+  onStateChange?: () => void;
 }
 
 const ActionButtons: React.FC<Props> = ({
   userId,
   placeId,
-  showFavoriteButton, showVoteButton, showCandidateButton,
+  showFavoriteButton, 
+  showVoteButton, 
+  showCandidateButton,
+  onStateChange
 }) => {
   const {
     isFavorited,
@@ -24,9 +28,24 @@ const ActionButtons: React.FC<Props> = ({
     toggleCandidate,
   } = useRestaurantStore();
 
-  const favOn = isFavorited(placeId);
-  const voteOn = isVoted(placeId);
-  const candOn = isCandidate(placeId);
+  const handleFavoriteToggle = async () => {
+    try {
+      await toggleFavorite(placeId, userId);
+      onStateChange?.();
+    } catch (error: any) {
+      alert(error?.message ?? '찜 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleVoteToggle = () => {
+    toggleVote(placeId);
+    onStateChange?.();
+  };
+
+  const handleCandidateToggle = () => {
+    toggleCandidate(placeId);
+    onStateChange?.();
+  };
 
   return (
     <div className={styles.actionButtons}>
@@ -35,11 +54,11 @@ const ActionButtons: React.FC<Props> = ({
           className={`${styles.actionButton} ${styles.favoriteButton} ${isFavorited(placeId) ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            void toggleFavorite(placeId, userId);
+            void handleFavoriteToggle();
           }}
-          title={favOn ? '찜해제' : '찜하기'}
+          title={isFavorited(placeId) ? '찜해제' : '찜하기'}
         >
-          {favOn ? '❤️' : '🤍'}
+          {isFavorited(placeId) ? '❤️' : '🤍'}
         </button>
       )}
       
@@ -48,26 +67,26 @@ const ActionButtons: React.FC<Props> = ({
           className={`${styles.actionButton} ${styles.voteButton} ${isVoted(placeId) ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            toggleVote(placeId); // 서버 미구현: 로컬만
+            handleVoteToggle();
           }}
-          title={voteOn ? '투표취소' : '투표하기'}
+          title={isVoted(placeId) ? '투표취소' : '투표하기'}
         >
-          {voteOn ? '✅' : '🗳️'}
+          {isVoted(placeId) ? '✅' : '☑️'}
         </button>
       )}
       
       {showCandidateButton && (
         <button
-        className={`${styles.actionButton} ${styles.candidateButton} ${candOn ? styles.active : ''}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleCandidate(placeId); // 서버 미구현: 일단 경고 or no-op로 설계 가능
-        }}
-        title={candOn ? '후보제거' : '후보추가'}
-      >
-        {candOn ? '⭐' : '☆'}
-      </button>
-    )}
+          className={`${styles.actionButton} ${styles.candidateButton} ${isCandidate(placeId) ? styles.active : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCandidateToggle();
+          }}
+          title={isCandidate(placeId) ? '후보제거' : '후보추가'}
+        >
+          {isCandidate(placeId) ? '📤' : '📥'}
+        </button>
+      )}
     </div>
   );
 };

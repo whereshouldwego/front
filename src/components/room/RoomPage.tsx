@@ -317,7 +317,7 @@ const RoomPage: React.FC = () => {
 // RoomPage용 메인 콘텐츠 컴포넌트 - 현위치 검색 기능 추가
 const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
   // useSidebar 훅 추가
-  const { performSearch } = useSidebar();
+  const { performSearch, loadMoreResults } = useSidebar();
   
   //  현위치 검색 버튼 표시 상태
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
@@ -431,8 +431,20 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
     onMarkerClick: (markerId: string) => {
       console.log('마커 클릭:', markerId, '방 ID:', roomId);
     },
-    onMapDragEnd: (center: MapCenter) => {
+    onMapDragEnd: async (center: MapCenter) => {
       console.log('지도 드래그 종료:', center, '방 ID:', roomId);
+      
+      // 드래그할 때마다 더 많은 결과 로드
+      try {
+        await loadMoreResults({
+          query: '', // 빈 쿼리로 위치 기반 검색
+          location: `${center.lat},${center.lng}`,
+          category: ''
+        });
+        console.log('✅ 드래그로 추가 결과 로드 완료');
+      } catch (error) {
+        console.error('❌ 드래그로 추가 결과 로드 실패:', error);
+      }
     },
     onMapZoomChanged: (level: number) => {
       console.log('지도 줌 변경:', level, '방 ID:', roomId);

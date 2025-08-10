@@ -1,8 +1,9 @@
 // src/hooks/useFavorites.ts
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { favoriteAPI, placeAPI } from '../lib/api';
-import type { Restaurant, LocalDetail } from '../types';
+import type { Restaurant, LocalDetail, RestaurantWithStatus } from '../types';
 import { localDetailToRestaurant } from '../utils/location';
+import { useRestaurantStore } from '../stores/RestaurantStore';
 
 /**
  * useFavorites
@@ -11,10 +12,12 @@ import { localDetailToRestaurant } from '../utils/location';
  * - FavoritePanel에서 그대로 사용 가능
  */
 export function useFavorites(userId?: number) {
-  const uid = userId ?? 1; // TODO: 실제 로그인 컨텍스트 연결 시 교체
+  const uid = userId ?? 1;
   const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState<string | null>(null);
-  const [items, setItems]   = useState<Restaurant[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<RestaurantWithStatus[]>([]); // 타입 수정
+
+  const { isCandidate, isVoted, getVoteCount } = useRestaurantStore();
 
   const fetchFavorites = useCallback(async () => {
     setLoading(true);
@@ -28,18 +31,19 @@ export function useFavorites(userId?: number) {
         res.data.map(async (f) => {
           const d = await placeAPI.getPlaceById(f.placeId);
           if (d.success) {
-            return localDetailToRestaurant(d.data as LocalDetail);
-          }
+            const restaurant = localDetailToRestaurant(d.data as LocalDetail);
           // 상세 실패 시 최소 보정
-          return {
-            placeId: f.placeId,
-            name: `place #${f.placeId}`,
-            category: '', // 필수 string 보정
-            location: { lat: Number.NaN, lng: Number.NaN },
-          } as Restaurant;
+            return {
+              ...restaurant,
+              isFavorite: true,
+              isCandidate: isCandidate(restaurant.placeId),
+              isVoted: isVoted(restaurant.placeId),
+              voteCount: getVoteCount(restaurant.placeId)
+            };
+          }
+          return null; // null 반환 추가
         })
       );
-
       setItems(list);
     } catch (e: any) {
       setError(e?.message || '찜 목록을 불러오는 중 오류가 발생했습니다.');
@@ -47,7 +51,7 @@ export function useFavorites(userId?: number) {
     } finally {
       setLoading(false);
     }
-  }, [uid]);
+  }, [uid, isCandidate, isVoted, getVoteCount]);
 
   useEffect(() => { void fetchFavorites(); }, [fetchFavorites]);
 

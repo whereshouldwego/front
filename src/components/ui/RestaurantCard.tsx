@@ -11,22 +11,30 @@
  */
 
 import React from 'react';
-import type { Restaurant } from '../../types';
+import type { Restaurant, RestaurantWithStatus } from '../../types';
 import styles from './RestaurantCard.module.css';
 
 interface Props {
-  data: Restaurant;
+  data: Restaurant | RestaurantWithStatus;
   className?: string;
   actions?: React.ReactNode;
 }
 
 const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
+  const hasStatus = 'isFavorite' in data;
+
+  const getSecondCategory = (category: string): string => {
+    const parts = category.split(' > ');
+    return parts.length >= 2 ? parts[1] : category;
+  };
+
+
   return (
     <div className={`${styles.restaurantCard} ${className || ''}`}>
       <div className={styles.header}>
         <h3 className={styles.name}>{data.name}</h3>
-      <span className={styles.category}>{data.category}</span>
-    </div>
+        <span className={styles.category}>{getSecondCategory(data.category)}</span>
+      </div>
     
     <div className={styles.details}>
       <div className={styles.infoRow}>
@@ -54,9 +62,9 @@ const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
           <p className={styles.summaryText}>{data.summary}</p>
         </div>
       )}
-
       {actions && <div className={styles.actions}>{actions}</div>}
     </div>
-    )}
+  );
+};
 
 export default RestaurantCard; 

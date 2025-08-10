@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { RestaurantStore } from '../types';
-import { favoriteAPI, candidateAPI } from '../lib/api';
+import { favoriteAPI, candidateAPI, placeAPI } from '../lib/api';
 
 export const useRestaurantStore = create<RestaurantStore>()(
   devtools(
@@ -10,7 +10,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
         // 초기 상태
         favorites: new Set<number>(),
         favoriteIndex: {},
-        candidates: new Set<number>(), // 이 줄 추가 필요
+        candidates: new Set<number>(),
         votedRestaurants: new Set<number>(),
         voteCounts: {} as Record<number, number>,
 
@@ -54,44 +54,49 @@ export const useRestaurantStore = create<RestaurantStore>()(
           const prevIndex = { ...favoriteIndex };
 
           if (!isOn) {
+            try {
+              const exist = await placeAPI.getPlaceById(placeId);
+              if (!exist.success) {
+                throw new Error('서버에 등록되지 않은 장소입니다. (place 미등록)');
+              }
+            } catch (e) {
+              // 사용자에게 안내
+              console.warn('[favorite:create] place 미등록으로 요청 중단', e);
+              throw e;
+            }        
             // 1) 낙관적 추가
             const optimistic = new Set(favorites);
             optimistic.add(placeId);
             set({ favorites: optimistic });
 
             try {
-              // 2) POST
               const res = await favoriteAPI.create({ userId, placeId });
               if (!res.success) throw new Error(res.error.message);
-              // 3) favoriteId 업데이트
               set((s) => ({
                 favoriteIndex: { ...s.favoriteIndex, [placeId]: res.data.favoriteId },
               }));
             } catch (e) {
-              // 4) 롤백
               set({ favorites: prevFavorites, favoriteIndex: prevIndex });
               throw e;
             }
           } else {
-            // 1) 낙관적 삭제
             const optimistic = new Set(favorites);
             optimistic.delete(placeId);
             const { [placeId]: willDelete, ...rest } = favoriteIndex;
             set({ favorites: optimistic, favoriteIndex: rest });
 
             try {
-              // 2) DELETE
               const favId = prevIndex[placeId];
               if (!favId) throw new Error('favoriteId 매핑이 없습니다.');
               const res = await favoriteAPI.remove(favId);
               if (!res.success) throw new Error(res.error.message);
             } catch (e) {
-              // 3) 롤백
               set({ favorites: prevFavorites, favoriteIndex: prevIndex });
               throw e;
             }
           }
         },
+
 
         /**
          * 후보 토글 -> 실제 구현시 수정 필요
@@ -139,11 +144,11 @@ export const useRestaurantStore = create<RestaurantStore>()(
 
         resetState: () => {
           set({
-            favorites: new Set<number>(), // string → number
+            favorites: new Set<number>(),
             favoriteIndex: {},
-            candidates: new Set<number>(), // string → number
-            votedRestaurants: new Set<number>(), // string → number
-            voteCounts: {} as Record<number, number> // string → number
+            candidates: new Set<number>(),
+            votedRestaurants: new Set<number>(),
+            voteCounts: {}
           });
         }
       }),

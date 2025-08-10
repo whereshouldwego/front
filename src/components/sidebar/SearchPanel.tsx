@@ -39,7 +39,7 @@ const SearchPanel: React.FC<Props> = ({ roomCode, center, onRequestShowPanel, us
     const c = center || DEFAULT_CENTER;
     searchByLocation(c);
     onRequestShowPanel?.();
-  }, []);
+  }, [center, searchByLocation, onRequestShowPanel]);
 
   // 최초 로딩: 위치 기반
   useEffect(() => {
@@ -55,6 +55,13 @@ const SearchPanel: React.FC<Props> = ({ roomCode, center, onRequestShowPanel, us
     if (!q) return;
     await searchByKeyword(q, center || DEFAULT_CENTER);
   }, [inputValue, center, searchByKeyword]);
+
+  const handleStateChange = useCallback(() => {
+    // 검색 결과를 다시 가져와서 상태 정보 업데이트
+    if (center) {
+      searchByLocation(center);
+    }
+  }, [center, searchByLocation]);
 
   return (
     <div className={styles.panelContent}>
@@ -115,6 +122,7 @@ const SearchPanel: React.FC<Props> = ({ roomCode, center, onRequestShowPanel, us
                           showFavoriteButton
                           showCandidateButton
                           showVoteButton={false} // 필요시 true로 변경
+                          onStateChange={handleStateChange}
                         />
                       ) : null
                     }

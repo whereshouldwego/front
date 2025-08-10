@@ -20,6 +20,8 @@ import type {
 // API 기본 설정
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_MAP_REST_API_KEY;
+const ENABLE_PLACE_ENRICH = (import.meta.env.VITE_PLACE_ENRICH ?? 'off') === 'on';
+
 
 // ===== 공통 유틸: 안전 JSON 파서 =====
 async function safeJson<T>(response: Response): Promise<T | null> {
@@ -233,16 +235,38 @@ export const placeAPI = {
 };
 
 // 카카오맵 결과를 Restaurant 타입으로 변환
-const toRestaurant = (doc: any): Restaurant => ({
-  placeId: Number(doc.id),
-  name: doc.place_name,
-  category: doc.category_name,
-  distanceText: doc.distance ? `${(Number(doc.distance) / 1000).toFixed(1)}km` : '거리 정보 없음',
-  location: { lat: Number(doc.y), lng: Number(doc.x), address: doc.address_name, roadAddress: doc.road_address_name },
-  phone: doc.phone,
-  summary: doc.aiSummary,
-  description: doc.aiSummary ?? undefined,
-});
+const toRestaurant = (doc: any): Restaurant => {
+  // 디버깅: distance 값 확인
+  console.log('[toRestaurant] 원본 distance 값:', doc.distance, '타입:', typeof doc.distance);
+  
+  // 거리 계산 로직 개선: 1km 미만은 미터 단위, 1km 이상은 킬로미터 단위
+  let distanceText = '거리 정보 없음';
+  if (doc.distance) {
+    const distanceInMeters = Number(doc.distance);
+    if (distanceInMeters > 0) {
+      if (distanceInMeters < 1000) {
+        // 1km 미만: 미터 단위로 표시
+        distanceText = `${distanceInMeters}m`;
+      } else {
+        // 1km 이상: 킬로미터 단위로 표시 (소수점 둘째자리까지)
+        const distanceInKm = (distanceInMeters / 1000);
+        distanceText = `${distanceInKm.toFixed(2)}km`;
+      }
+    }
+  }
+  console.log('[toRestaurant] 변환된 distanceText:', distanceText);
+  
+  return {
+    placeId: Number(doc.id),
+    name: doc.place_name,
+    category: doc.category_name,
+    distanceText,
+    location: { lat: Number(doc.y), lng: Number(doc.x), address: doc.address_name, roadAddress: doc.road_address_name },
+    phone: doc.phone,
+    summary: doc.aiSummary,
+    description: doc.aiSummary ?? undefined,
+  };
+};
 
 // 통합 검색 API
 export const integratedSearchAPI = {
@@ -250,7 +274,7 @@ export const integratedSearchAPI = {
   searchAndEnrich: async (
     query: string,
     center?: MapCenter,
-    opts?: { roomCode?: string }
+    opts?: { roomCode?: string; page?: number }
   ): Promise<Restaurant[]> => {
     try {
       // 1) 후보 제외용 집합
@@ -267,34 +291,50 @@ export const integratedSearchAPI = {
         x: center?.lng ? String(center.lng) : undefined,
         y: center?.lat ? String(center.lat) : undefined,
         size: 10,
+        page: opts?.page || 1,
         sort: center ? 'distance' : 'accuracy',
       });
 
       // 3) 후보 제외
       const docs = kakao.documents.filter(d => !excluded.has(Number(d.id)));
+      
+      // 디버깅: Kakao API 응답 확인
+      console.log('[searchAndEnrich] Kakao API 응답:', docs[0]); // 첫 번째 결과만 확인
+      console.log('[searchAndEnrich] distance 필드 확인:', docs[0]?.distance);
 
       // 4) 백엔드 상세 보강
       const base = docs.map(toRestaurant);
+      if (!ENABLE_PLACE_ENRICH) {
+        console.log('[search] 보강 기능이 비활성화되어 있습니다. Kakao 결과만 사용');
+        return base;
+      }
       const enriched = await Promise.all(
         base.map(async (r) => {
-          const detail = await placeAPI.getPlaceById(r.placeId);
-          if (detail.success) {
-            const d = detail.data;
-            return {
-              ...r,
-              name: d.name || r.name,
-              category: d.categoryName || r.category,
-              phone: d.phone || r.phone,
-              location: {
-                ...r.location,
-                address: d.address ?? r.location.address,
-                roadAddress: d.roadAddress ?? r.location.roadAddress,
-              },
-              summary: d.aiSummary,
-              description: d.aiSummary ?? undefined,
-            } as Restaurant;
+          try {
+            const detail = await placeAPI.getPlaceById(r.placeId);
+            if (detail.success) {
+              const d = detail.data;
+              return {
+                ...r,
+                name: d.name || r.name,
+                category: d.categoryName || r.category,
+                phone: d.phone || r.phone,
+                location: {
+                  ...r.location,
+                  address: d.address ?? r.location.address,
+                  roadAddress: d.roadAddress ?? r.location.roadAddress,
+                },
+                summary: d.aiSummary,
+                description: d.aiSummary ?? undefined,
+              } as Restaurant;
+            }
+            // 보강 실패 시 원본 데이터 반환
+            return r;
+          } catch (error) {
+            // 예외 발생 시 원본 데이터 반환
+            console.warn(`[search] place ${r.placeId} 보강 중 오류 발생:`, error);
+            return r;
           }
-          return r;
         })
       );
       return enriched;
@@ -307,7 +347,7 @@ export const integratedSearchAPI = {
   /** 위치 기반(초기) + 보강 */
   searchByLocation: async (
     center: MapCenter,
-    opts?: { roomCode?: string; radiusKm?: number }
+    opts?: { roomCode?: string; radiusKm?: number; page?: number }
   ): Promise<Restaurant[]> => {
     try {
       let excluded = new Set<number>();
@@ -322,28 +362,47 @@ export const integratedSearchAPI = {
         y: String(center.lat),
         radius: (opts?.radiusKm ?? 3) * 1000,
         size: 10,
+        page: opts?.page || 1,
         sort: 'distance',
       });
 
       const docs = kakao.documents.filter(d => !excluded.has(Number(d.id)));
+      
+      // 디버깅: Kakao API 응답 확인
+      console.log('[searchByLocation] Kakao API 응답:', docs[0]); // 첫 번째 결과만 확인
+      console.log('[searchByLocation] distance 필드 확인:', docs[0]?.distance);
+      
       const base = docs.map(toRestaurant);
+
+      // 보강 기능이 꺼져있으면 Kakao 결과만 반환
+      if (!ENABLE_PLACE_ENRICH) {
+        console.log('[search] 보강 기능이 비활성화되어 있습니다. Kakao 결과만 사용');
+        return base;
+      }
 
       const enriched = await Promise.all(
         base.map(async (r) => {
-          const detail = await placeAPI.getPlaceById(r.placeId);
-          if (detail.success) {
-            const d = detail.data;
-            return {
-              ...r,
-              name: d.name || r.name,
-              category: d.categoryName || r.category,
-              phone: d.phone || r.phone,
-              location: { ...r.location, address: d.address, roadAddress: d.roadAddress },
-              summary: d.aiSummary,
-              description: d.aiSummary || r.description,
-            } as Restaurant;
+          try {
+            const detail = await placeAPI.getPlaceById(r.placeId);
+            if (detail.success) {
+              const d = detail.data;
+              return {
+                ...r,
+                name: d.name || r.name,
+                category: d.categoryName || r.category,
+                phone: d.phone || r.phone,
+                location: { ...r.location, address: d.address, roadAddress: d.roadAddress },
+                summary: d.aiSummary,
+                description: d.aiSummary || r.description,
+              } as Restaurant;
+            }
+            // 보강 실패 시 원본 데이터 반환
+            return r;
+          } catch (error) {
+            // 예외 발생 시 원본 데이터 반환
+            console.warn(`[search] place ${r.placeId} 보강 중 오류 발생:`, error);
+            return r;
           }
-          return r;
         })
       );
       return enriched;

@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_KAKAO_CLIENT_ID: string
   readonly VITE_KAKAO_REDIRECT_URI: string
   readonly VITE_API_URL: string
+  readonly VITE_PLACE_ENRICH: string
 }
 
 interface ImportMeta {

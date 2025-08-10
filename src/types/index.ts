@@ -93,8 +93,8 @@ export interface LocalDetail {
 
 // ✅ 즐겨찾기 API
 export interface FavoriteCreateBody {
-  userId: number;
   placeId: number;
+  userId: number;
 }
 export interface FavoriteInfo {
   favoriteId: number;
@@ -320,6 +320,14 @@ export interface ChatResponse {
     restaurants?: Restaurant[];
   };
   message?: string;
+}
+
+// 레스토랑 상태 타입
+export interface RestaurantWithStatus extends Restaurant {
+  isFavorite: boolean;
+  isCandidate: boolean;
+  isVoted: boolean;
+  voteCount: number;
 }
 
 // 사용자 위치 업데이트 요청 타입
