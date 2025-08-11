@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { RestaurantStore } from '../types';
-import { favoriteAPI, candidateAPI, placeAPI } from '../lib/api';
+import { favoriteAPI, candidateAPI } from '../lib/api';
 
 export const useRestaurantStore = create<RestaurantStore>()(
   devtools(
@@ -34,10 +34,9 @@ export const useRestaurantStore = create<RestaurantStore>()(
           }
         },
         /** 투표 초기 동기화: 서버 미구현 → 보류 */
-        hydrateVotes: async (_roomCode: string) => {
+        hydrateVotes: async () => {},
           // (추후 명세 확인 요망) : vote 조회/집계 API 확정되면 여기서 동기화
           // 예: const res = await voteAPI.list(_roomCode)
-        },
 
         // 액션들
         /**
@@ -54,17 +53,6 @@ export const useRestaurantStore = create<RestaurantStore>()(
           const prevIndex = { ...favoriteIndex };
 
           if (!isOn) {
-            try {
-              const exist = await placeAPI.getPlaceById(placeId);
-              if (!exist.success) {
-                throw new Error('서버에 등록되지 않은 장소입니다. (place 미등록)');
-              }
-            } catch (e) {
-              // 사용자에게 안내
-              console.warn('[favorite:create] place 미등록으로 요청 중단', e);
-              throw e;
-            }        
-            // 1) 낙관적 추가
             const optimistic = new Set(favorites);
             optimistic.add(placeId);
             set({ favorites: optimistic });
@@ -118,15 +106,14 @@ export const useRestaurantStore = create<RestaurantStore>()(
          */
         toggleVote: (placeId: number) => {
           set((state) => {
-            const id = placeId;
             const voted = new Set(state.votedRestaurants);
             const counts = { ...state.voteCounts };
-            if (voted.has(id)) {
-              voted.delete(id);
-              counts[id] = Math.max(0, (counts[id] || 0) - 1);
+            if (voted.has(placeId)) {
+              voted.delete(placeId);
+              counts[placeId] = Math.max(0, (counts[placeId] || 0) - 1);
             } else {
-              voted.add(id);
-              counts[id] = (counts[id] || 0) + 1;
+              voted.add(placeId);
+              counts[placeId] = (counts[placeId] || 0) + 1;
             }
             return { votedRestaurants: voted, voteCounts: counts };
           });

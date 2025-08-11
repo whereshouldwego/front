@@ -1,67 +1,105 @@
 /**
  * SearchPanel.tsx
  *
- * 검색 패널 컴포넌트
- *
- * 기능:
- * - 검색 입력 필드
- * - 검색 결과 표시
- * - 로딩 및 에러 상태 처리
- * - 카카오 검색 + 후보 제외 + 백엔드 보강
+ * - IntersectionObserver 기반 무한 스크롤(바닥 근처 sentinel 관찰)
+ * - 검색 제출 시에만 performSearch() 호출 → 드래그(mapCenter 변경)는 요청 X
+ * - “우수수 로딩” 방지: Context의 isLoadingMore + inFlightRef로 가드
+ * - CSS Module 스타일 유지
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { EMPTY_MESSAGES, LOADING_MESSAGES, PANEL_CONFIGS } from '../../constants/sidebar';
-import type { MapCenter } from '../../types';
+import styles from './SidebarPanels.module.css';
 import RestaurantCard from '../ui/RestaurantCard';
 import ActionButtons from '../ui/ActionButtons';
-import styles from './SidebarPanels.module.css';
-import { useSearch } from '../../hooks/useSearch';
+import { useSidebar } from '../../stores/SidebarContext';
+import type { MapCenter } from '../../types';
 
-const DEFAULT_CENTER: MapCenter = {
-  lat: 37.5002, // 역삼역 위도
-  lng: 127.0364 // 역삼역 경도
-};
+const DEFAULT_CENTER: MapCenter = { lat: 37.5002, lng: 127.0364 };
 
 interface Props {
-  roomCode?: string;
-  center?: MapCenter;
-  onRequestShowPanel?: () => void;
-  userId?: number; // 로그인/컨텍스트에서 받을 수 있으면 전달
+  userId?: number;
+  roomCode?: string; // 현재는 내부에서 사용하지 않지만, 시그니처 유지(호환성)
+  center?: MapCenter; // 상위에서 내려줄 경우 초기 검색에 사용 가능
 }
 
-const SearchPanel: React.FC<Props> = ({ roomCode, center, onRequestShowPanel, userId }) => {
+const SearchPanel: React.FC<Props> = ({ userId, center }) => {
+  const {
+    searchResults,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    performSearch,
+    loadMore,
+    mapCenter,
+  } = useSidebar();
+
   const [inputValue, setInputValue] = useState('');
-  const { results, loading, error, searchByKeyword, searchByLocation } = useSearch(roomCode);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+    // const panelBodyRef = useRef<HTMLDivElement | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // 초기 로딩: 위치 기반
+  // 초기 로딩: 위치 기반(현재 mapCenter 있으면 사용, 없으면 DEFAULT_CENTER 또는 props.center)
   useEffect(() => {
-    const c = center || DEFAULT_CENTER;
-    searchByLocation(c);
-    onRequestShowPanel?.();
-  }, [center, searchByLocation, onRequestShowPanel]);
-
-  // 최초 로딩: 위치 기반
-  useEffect(() => {
-    const c = center || DEFAULT_CENTER;
-    void searchByLocation(c);
-    onRequestShowPanel?.();
+    void performSearch({
+      query: '',
+      center: mapCenter ?? center ?? DEFAULT_CENTER,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = inputValue.trim();
-    if (!q) return;
-    await searchByKeyword(q, center || DEFAULT_CENTER);
-  }, [inputValue, center, searchByKeyword]);
+  // IntersectionObserver 설치: 바닥 sentinel이 보이면 loadMore()
+  useEffect(() => {
+    if (!sentinelRef.current) return;
 
-  const handleStateChange = useCallback(() => {
-    // 검색 결과를 다시 가져와서 상태 정보 업데이트
-    if (center) {
-      searchByLocation(center);
+    // 기존 옵저버 정리
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
     }
-  }, [center, searchByLocation]);
+    // const rootEl = panelBodyRef.current || undefined;
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        // ✅ sentinel이 보이고, 아직 더 불러올 게 있고, 추가 로딩 중이 아닐 때만
+        if (entry.isIntersecting && hasMore && !isLoading && !isLoadingMore) {
+          void loadMore();
+        }
+      },
+      {
+        root: document.querySelector(`.${styles.panelBody}`) || undefined, // 패널 스크롤 영역 기준
+        rootMargin: '200px', // 🔸 미리 로딩(약간 위에서 트리거)
+        threshold: 0.01,
+      }
+    );
+
+    observerRef.current.observe(sentinelRef.current);
+
+    return () => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+    };
+  }, [hasMore, isLoading, isLoadingMore, loadMore]);
+
+  // 검색 제출 시 → 현재 mapCenter 기준으로 요청
+  const onSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      void performSearch({
+        query: inputValue.trim(),
+        center: mapCenter ?? center ?? DEFAULT_CENTER,
+      });
+    },
+    [inputValue, performSearch, mapCenter, center]
+  );
+
+  // 토글 후 리스트를 새로고침하고 싶을 때 사용할 수 있는 콜백(선택)
+  const handleStateChange = useCallback(() => {
+    void performSearch({
+      query: inputValue.trim(),
+      center: mapCenter ?? center ?? DEFAULT_CENTER,
+    });
+  }, [performSearch, inputValue, mapCenter, center]);
 
   return (
     <div className={styles.panelContent}>
@@ -74,54 +112,46 @@ const SearchPanel: React.FC<Props> = ({ roomCode, center, onRequestShowPanel, us
         </div>
       </div>
 
-      {/* 패널 바디 */}
+      {/* 바디 (스크롤 컨테이너) */}
       <div className={styles.panelBody}>
         {/* 검색 폼 */}
-        <form onSubmit={handleSubmit} className={styles.searchField}>
+        <form onSubmit={onSubmit} className={styles.searchField}>
           <input
-            type="text"
+            className={styles.searchInput}
+            placeholder={PANEL_CONFIGS.search.searchPlaceholder}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder={PANEL_CONFIGS.search.searchPlaceholder}
-            className={styles.searchInput}
           />
         </form>
 
         {/* 로딩 상태 */}
-        {loading && (
+        {isLoading && (
           <div className={styles.loadingState}>
             <div className={styles.spinner}></div>
             <p>{LOADING_MESSAGES.SEARCHING}</p>
           </div>
         )}
 
-        {/* 에러 상태 */}
-        {!loading && error && (
-          <div className={styles.errorState}>
-            <p>{error}</p>
-          </div>
-        )}
-
-        {/* 검색 결과 */}
-        {!loading && !error && results.length > 0 && (
+        {/* 결과 */}
+        {!isLoading && searchResults.length > 0 && (
           <div className={styles.resultsContainer}>
             <div className={styles.resultsHeader}>
-              <span>검색 결과 ({results.length}개)</span>
+              <span>검색 결과 ({searchResults.length}개)</span>
             </div>
+
             <div className={styles.restaurantCards}>
-              {results.map((restaurant) => (
-                <div key={restaurant.placeId} className={styles.searchItem}>
+              {searchResults.map((r) => (
+                <div key={r.placeId} className={styles.searchItem}>
                   <RestaurantCard
-                    data={restaurant}
+                    data={r}
                     className={styles.restaurantCard}
                     actions={
                       userId ? (
                         <ActionButtons
                           userId={userId}
-                          placeId={restaurant.placeId}
+                          placeId={r.placeId}
                           showFavoriteButton
                           showCandidateButton
-                          showVoteButton={false} // 필요시 true로 변경
                           onStateChange={handleStateChange}
                         />
                       ) : null
@@ -130,11 +160,28 @@ const SearchPanel: React.FC<Props> = ({ roomCode, center, onRequestShowPanel, us
                 </div>
               ))}
             </div>
+
+            {/* 추가 로딩 표시 */}
+            {isLoadingMore && (
+              <div className={styles.loadingIndicator}>
+                <div className={styles.spinner}></div>
+                <span className="text-center text-gray-400 text-sm py-2">추가 결과를 불러오는 중...</span>
+              </div>
+            )}
+
+            {!hasMore && (
+              <div className={styles.loadingIndicator}>
+                <span className="text-center text-gray-400 text-sm py-2">모든 결과를 불러왔습니다</span>
+              </div>
+            )}
+
+            {/* ✅ 무한스크롤 sentinel (화면 하단 관찰 대상) */}
+            <div ref={sentinelRef} style={{ height: 1 }} />
           </div>
         )}
 
         {/* 빈 상태 */}
-        {!loading && !error && results.length === 0 && (
+        {!isLoading && searchResults.length === 0 && (
           <div className={styles.emptyState}>
             <p>{EMPTY_MESSAGES.search}</p>
           </div>

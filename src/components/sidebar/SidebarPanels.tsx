@@ -1,18 +1,10 @@
 /**
  * SidebarPanels.tsx
  *
- * 사이드바 패널 라우터 컴포넌트
- *
- * 기능:
- * - 활성 패널에 따른 적절한 패널 컴포넌트 렌더링
- * - 패널 간 전환 관리
- * - 일관된 패널 구조 제공
- *
- * 패널 종류:
- * - SearchPanel: 검색 패널
- * - RecommendPanel: 추천 패널
- * - CandidatePanel: 후보 패널
- * - FavoritePanel: 찜 패널
+ * 패널 라우팅 컴포넌트
+ * - SearchPanel 외 패널은 기존 구조 유지
+ * - roomCode/center/userId는 실제 상위(RoomPage/Sidebar)에서 주입하는 것을 권장
+ *   (여기선 하드코딩 대신 최소한의 예시만 남김)
  */
 
 import React from 'react';
@@ -28,10 +20,11 @@ interface SidebarPanelsProps {
 }
 
 const SidebarPanels: React.FC<SidebarPanelsProps> = ({ activePanel }) => {
-  const userId = Number(localStorage.getItem('userId') || 0); // 예시
-  const roomCode = 'ROOM-123'; // 예시: 상위에서 가져오세요
-  const center = undefined;    // 지도 센터 있으면 넣기
-  // 활성 패널에 따른 컴포넌트 렌더링
+  // TODO: 실제 앱에선 상위에서 내려받아 사용
+  const userId = Number(localStorage.getItem('userId') || 0);
+  const roomCode = localStorage.getItem('roomCode') || 'DEMO01';
+  const center = undefined;
+
   const renderActivePanel = () => {
     switch (activePanel) {
       case 'search':
@@ -47,11 +40,7 @@ const SidebarPanels: React.FC<SidebarPanelsProps> = ({ activePanel }) => {
     }
   };
 
-  return (
-    <div className={`${styles.sidebarPanel} ${styles.active}`}>
-      {renderActivePanel()}
-    </div>
-  );
+  return <div className={`${styles.sidebarPanel} ${styles.active}`}>{renderActivePanel()}</div>;
 };
 
-export default SidebarPanels; 
+export default SidebarPanels;

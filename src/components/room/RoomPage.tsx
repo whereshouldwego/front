@@ -9,7 +9,7 @@
  * - 현위치 검색 기능
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { WebSocketProvider } from '../../stores/WebSocketContext';
 import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
@@ -51,11 +51,7 @@ const RoomPage: React.FC = () => {
     }
 
   // 이미 같은 방을 로딩 중이거나 로딩 완료된 경우 중복 실행 방지
-    if (isLoadingRef.current || loadedRoomId.current === currentRoomId) {
-      return;
-    }
-
-  // 방 정보 로드
+  if (isLoadingRef.current || loadedRoomId.current === currentRoomId) return;
   loadRoomData(currentRoomId);
 }, [currentRoomId, navigate]);
 
@@ -316,8 +312,9 @@ const RoomPage: React.FC = () => {
 
 // RoomPage용 메인 콘텐츠 컴포넌트 - 현위치 검색 기능 추가
 const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
+  const { setMapCenter, performSearch } = useSidebar();
   // useSidebar 훅 추가
-  const { performSearch, loadMoreResults } = useSidebar();
+  // const { searchResults, recommendations, favorites, votes } = useSidebar();
   
   //  현위치 검색 버튼 표시 상태
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
@@ -381,9 +378,9 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
   };
 
   // 지도 이동 시 버튼 표시 로직
-  const handleMapMoved = (center: MapCenter) => {
+  const handleMapMoved = useCallback((center: MapCenter) => {
     console.log('지도 이동:', center, '방 ID:', roomId);
-    
+    setMapCenter(center);
     // 지도가 이동했고, 이전 검색 위치와 충분히 다르면 버튼 표시
     const threshold = 0.001; // 약 100m 정도의 거리
     
@@ -392,7 +389,7 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
         Math.abs(center.lng - lastSearchCenter.lng) > threshold) {
       setShowCurrentLocationButton(true);
     }
-  };
+  }, [lastSearchCenter, setMapCenter]);
 
   // 현위치 검색 실행
   const handleCurrentLocationSearch = async (center: MapCenter) => {
@@ -400,13 +397,7 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
     
     try {
       // 검색 실행 - 현재 지도 중심점 기반으로 검색
-      await performSearch({
-        query: '', // 빈 쿼리로 위치 기반 검색
-        location: `${center.lat},${center.lng}`, // 위도,경도 형태로 전달
-        category: '', // 모든 카테고리
-        limit: 20 // 충분한 결과 수
-      });
-      
+      await performSearch({ query: '', center });
       // 검색 완료 후 버튼 숨기기 및 위치 저장
       setShowCurrentLocationButton(false);
       setLastSearchCenter(center);
@@ -431,20 +422,8 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
     onMarkerClick: (markerId: string) => {
       console.log('마커 클릭:', markerId, '방 ID:', roomId);
     },
-    onMapDragEnd: async (center: MapCenter) => {
+    onMapDragEnd: (center: MapCenter) => {
       console.log('지도 드래그 종료:', center, '방 ID:', roomId);
-      
-      // 드래그할 때마다 더 많은 결과 로드
-      try {
-        await loadMoreResults({
-          query: '', // 빈 쿼리로 위치 기반 검색
-          location: `${center.lat},${center.lng}`,
-          category: ''
-        });
-        console.log('✅ 드래그로 추가 결과 로드 완료');
-      } catch (error) {
-        console.error('❌ 드래그로 추가 결과 로드 실패:', error);
-      }
     },
     onMapZoomChanged: (level: number) => {
       console.log('지도 줌 변경:', level, '방 ID:', roomId);
