@@ -37,7 +37,7 @@ import { Sidebar } from '../sidebar';
 // 메인 서비스 컴포넌트 (기존 MainContent)
 const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
   const { searchResults, recommendations, favorites, votes, performSearch } = useSidebar();
-  const { otherUsersCursors } = useWebSocket();
+  const { sendCursorPosition, otherUsersPositions } = useWebSocket();
   
   // 현위치 검색 버튼 표시 상태
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
@@ -215,6 +215,8 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
         markers={mapMarkers}
         eventHandlers={mapEventHandlers}
         onMapMoved={handleMapMoved}
+        onCursorMove={(pos) => sendCursorPosition(pos)}
+        cursorPositions={[...otherUsersPositions.entries()].map(([id, pos]) => ({ id, position: pos }))}
       />
       <MapOverlay
         users={users}
@@ -227,25 +229,6 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
       <ChatSection
         onAuroraToggle={handleAuroraToggle}
       />
-
-      {/* 다른 사용자 커서 렌더링 */}
-      {[...otherUsersCursors.entries()].map(([userId, cursor]) => (
-        <div
-          key={userId}
-          style={{
-            position: 'absolute',
-            left: cursor.x,
-            top: cursor.y,
-            width: '20px',
-            height: '20px',
-            backgroundColor: 'red',
-            borderRadius: '50%',
-            pointerEvents: 'none',
-            zIndex: 9999,
-            transform: 'translate(-50%, -50%)',
-          }}
-        />
-      ))}
     </div>
   );
 };
@@ -261,7 +244,8 @@ const MainPage: React.FC = () => {
     <div className="relative">
       {/* 배경으로 서비스 화면 */}
       <div className="fixed inset-0">
-        <WebSocketProvider>
+        {/* Demo page without a room: use a placeholder room code for socket grouping */}
+        <WebSocketProvider roomCode={"DEMO01"}>
           <SidebarProvider>
             <ChatProvider>
               <div className="h-screen relative">

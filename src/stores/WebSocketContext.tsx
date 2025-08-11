@@ -1,26 +1,33 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { MapCenter } from '../types';
 
-// TODO: 실제 웹소켓 서버 주소로 변경해야 합니다.
-const WEBSOCKET_URL = 'ws://localhost:8080'; // 예시 URL
-
-interface CursorPosition {
-  x: number;
-  y: number;
+function buildWebSocketUrl(roomCode: string): string {
+  // Prefer explicit WS URL, fallback to API URL
+  const base = (import.meta as any).env.VITE_WS_URL || (import.meta as any).env.VITE_API_URL || '';
+  const normalized = String(base).replace(/\/$/, '');
+  const wsBase = normalized.replace(/^http/i, 'ws');
+  return `${wsBase}/ws/cursor?roomCode=${encodeURIComponent(roomCode)}`;
 }
 
-interface CursorMessage {
-  type: 'cursorUpdate';
-  userId: string;
-  x: number;
-  y: number;
+interface CursorPositionLatLng {
+  lat: number;
+  lng: number;
+}
+
+interface BackendCursorMessage {
+  userId: number | string;
+  roomCode: string;
+  lat: number;
+  lng: number;
 }
 
 interface WebSocketContextType {
   sendMessage: (message: any) => void;
+  sendCursorPosition: (position: MapCenter) => void;
   lastMessage: MessageEvent | null;
   readyState: number;
-  otherUsersCursors: Map<string, CursorPosition>;
+  otherUsersPositions: Map<string, CursorPositionLatLng>;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null);
@@ -35,89 +42,100 @@ export const useWebSocket = () => {
 
 interface WebSocketProviderProps {
   children: ReactNode;
+  roomCode: string;
 }
 
-export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
+export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, roomCode }) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [lastMessage, setLastMessage] = useState<MessageEvent | null>(null);
   const [readyState, setReadyState] = useState<number>(WebSocket.CONNECTING);
-  const [otherUsersCursors, setOtherUsersCursors] = useState<Map<string, CursorPosition>>(new Map());
+  const [otherUsersPositions, setOtherUsersPositions] = useState<Map<string, CursorPositionLatLng>>(new Map());
+  const pendingPositionsRef = useRef<Map<string, CursorPositionLatLng> | null>(null);
+  const flushTimerRef = useRef<number | null>(null);
+
+  const userIdRaw = useMemo(() => localStorage.getItem('userId') || '', []);
+  const parsedUserId: number | string = useMemo(() => {
+    const n = Number(userIdRaw);
+    return Number.isFinite(n) && !Number.isNaN(n) ? n : userIdRaw || `user_${Math.random().toString(36).substring(2, 9)}`;
+  }, [userIdRaw]);
 
   useEffect(() => {
-    // TODO: 인증 토큰이 있다면 URL에 추가하거나, 연결 후 메시지로 전송해야 합니다.
-    const ws = new WebSocket(WEBSOCKET_URL);
+    const url = buildWebSocketUrl(roomCode);
+    const ws = new WebSocket(url);
 
     ws.onopen = () => {
-      console.log('WebSocket Connected');
       setReadyState(ws.readyState);
     };
 
     ws.onmessage = (event) => {
       setLastMessage(event);
       try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'cursorUpdate') {
-          setOtherUsersCursors(prev => {
-            const newMap = new Map(prev);
-            newMap.set(data.userId, { x: data.x, y: data.y });
-            return newMap;
-          });
+        const data: BackendCursorMessage = JSON.parse(event.data);
+        if (
+          typeof data.lat === 'number' &&
+          typeof data.lng === 'number' &&
+          data.userId != null &&
+          String(data.userId) !== String(parsedUserId)
+        ) {
+          // Batch updates to reduce re-renders
+          if (!pendingPositionsRef.current) pendingPositionsRef.current = new Map(otherUsersPositions);
+          pendingPositionsRef.current.set(String(data.userId), { lat: data.lat, lng: data.lng });
+          if (flushTimerRef.current == null) {
+            flushTimerRef.current = window.setTimeout(() => {
+              if (pendingPositionsRef.current) {
+                setOtherUsersPositions(new Map(pendingPositionsRef.current));
+                pendingPositionsRef.current = null;
+              }
+              if (flushTimerRef.current != null) {
+                window.clearTimeout(flushTimerRef.current);
+                flushTimerRef.current = null;
+              }
+            }, 60);
+          }
         }
-        // TODO: 다른 메시지 타입 처리
       } catch (e) {
-        console.error('Failed to parse WebSocket message:', e);
+        // ignore non-cursor messages
       }
     };
 
     ws.onclose = () => {
-      console.log('WebSocket Disconnected');
       setReadyState(ws.readyState);
-      // TODO: 필요시 재연결 로직 구현
     };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket Error:', error);
+    ws.onerror = () => {
       setReadyState(ws.readyState);
     };
 
     setSocket(ws);
 
-    const userId = localStorage.getItem('userId') || `user_${Math.random().toString(36).substring(2, 9)}`;
-    localStorage.setItem('userId', userId);
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        const message: CursorMessage = {
-          type: 'cursorUpdate',
-          userId: userId,
-          x: e.clientX,
-          y: e.clientY,
-        };
-        ws.send(JSON.stringify(message));
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-
     return () => {
       ws.close();
-      window.removeEventListener('mousemove', handleMouseMove);
     };
-  }, []);
+  }, [roomCode]);
 
   const sendMessage = (message: any) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(message));
-    } else {
-      console.log('WebSocket is not connected.');
     }
   };
 
-  const contextValue = {
+  const sendCursorPosition = (position: MapCenter) => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    const payload: BackendCursorMessage = {
+      userId: parsedUserId,
+      roomCode,
+      lat: position.lat,
+      lng: position.lng,
+    };
+    socket.send(JSON.stringify(payload));
+  };
+
+  const contextValue: WebSocketContextType = {
     sendMessage,
+    sendCursorPosition,
     lastMessage,
     readyState,
-    otherUsersCursors,
+    otherUsersPositions,
   };
 
   return (

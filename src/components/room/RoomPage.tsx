@@ -20,6 +20,7 @@ import MapOverlay from '../map/MapOverlay';
 import ChatSection from '../chat/ChatSection';
 import styles from './RoomPage.module.css';
 import type { MapCenter, MapEventHandlers, UserProfile } from '../../types';
+import { useWebSocket } from '../../stores/WebSocketContext';
 
 interface RoomData {
   id: string;
@@ -69,125 +70,111 @@ const RoomPage: React.FC = () => {
 
       console.log(`방 정보 로드 시작: ${id}`);
       
-      // 기존 사용자 토큰 확인
-      const existingToken = localStorage.getItem('accessToken');
-      const existingUserId = localStorage.getItem('userId');
-      
-      // 2단계: 사용자 인증 확인 및 새 사용자 생성
-      let userToken = existingToken;
-      let userId = existingUserId;
-
-      // 토큰이 없는 경우에만 새 사용자 생성
-      if (!userToken) {
-        console.log('새 사용자 생성 중...');
-        
-        const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/guest?roomCode=${id}`, {
+      // ===== 인증 보장 유틸 =====
+      const ensureGuestAuth = async (roomCode: string) => {
+        console.log('게스트 인증 보장 시도...');
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/guest?roomCode=${roomCode}`, {
           method: 'POST',
           credentials: 'include',
         });
+        if (!res.ok) throw new Error('사용자 생성에 실패했습니다.');
+        const userData = await res.json();
+        if (!userData?.accessToken || !userData?.userId) throw new Error('사용자 정보가 올바르지 않습니다.');
+        localStorage.setItem('accessToken', userData.accessToken);
+        localStorage.setItem('userId', userData.userId);
+        localStorage.setItem('userNickname', userData.nickname || '');
+        localStorage.setItem('userType', 'guest');
+        console.log('게스트 인증 완료:', { userId: userData.userId, nickname: userData.nickname, roomCode });
+        return { token: userData.accessToken as string, userId: String(userData.userId), nickname: String(userData.nickname || '') } as const;
+      };
 
-        if (!userResponse.ok) {
-          throw new Error('사용자 생성에 실패했습니다.');
-        }
-
-        const userData = await userResponse.json();
-        
-        // 새 사용자 정보 저장
-        userToken = userData.accessToken;
-        userId = userData.userId;
-        
-        // null 체크 후 localStorage에 저장
-        if (userToken && userId) {
-          localStorage.setItem('accessToken', userToken);
-          localStorage.setItem('userId', userId);
-          localStorage.setItem('userNickname', userData.nickname || '');
-          localStorage.setItem('userType', 'guest');
-          
-          console.log('새 사용자 생성 완료:', {
-            userId: userId,
-            nickname: userData.nickname,
-            roomCode: id
-          });
-        } else {
-          throw new Error('사용자 정보가 올바르지 않습니다.');
-        }
+      // ===== 현재 사용자 정보 로드 or 생성 =====
+      let userToken = localStorage.getItem('accessToken') || '';
+      let userId = localStorage.getItem('userId') || '';
+      let userNickname = localStorage.getItem('userNickname') || '';
+      if (!userToken || !userId) {
+        const auth = await ensureGuestAuth(id);
+        userToken = auth.token;
+        userId = auth.userId;
+        userNickname = auth.nickname;
       }
 
-      // 3단계: 인증된 사용자로 방 정보 조회 (방 존재 여부 확인 포함)
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${userToken}`,
-          'Content-Type': 'application/json'
+      // ===== 조인 요청 함수 (roomId, userId, nickname 전달) =====
+      const joinRoom = async () => {
+        console.log('방 참가 요청 중...', { id, userId, userNickname });
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}/join`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ roomCode: id, userId, nickname: userNickname })
+        });
+        return res;
+      };
+
+      // ===== 방 정보 조회 함수 =====
+      const fetchRoom = async () => {
+        return fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      };
+
+      // 1) 방 정보 조회 시도
+      let response = await fetchRoom();
+
+      // 2) 401이면 토큰 재발급 후 재시도
+      if (response.status === 401) {
+        const auth = await ensureGuestAuth(id);
+        userToken = auth.token;
+        userId = auth.userId;
+        userNickname = auth.nickname;
+        response = await fetchRoom();
+      }
+
+      // 3) 403이면 조인 후 재시도 (조인시 roomCode, userId, nickname 전달)
+      if (response.status === 403) {
+        const jr = await joinRoom();
+        // 조인도 401이면 재인증 후 재시도
+        if (jr.status === 401) {
+          const auth = await ensureGuestAuth(id);
+          userToken = auth.token;
+          userId = auth.userId;
+          userNickname = auth.nickname;
+          const jr2 = await joinRoom();
+          if (!jr2.ok && jr2.status !== 409) throw new Error('방에 참가할 수 없습니다.');
+        } else if (!jr.ok && jr.status !== 409) {
+          // 409 Conflict 등은 이미 참가로 간주
+          throw new Error('방에 참가할 수 없습니다.');
         }
-      });
+        response = await fetchRoom();
+      }
 
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('존재하지 않는 방입니다.');
-        } else if (response.status === 403) {
-          // 권한이 없는 경우, 방에 참가 요청
-          console.log('방 참가 요청 중...');
-          
-          const joinResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}/join`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Authorization': `Bearer ${userToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-
-          if (!joinResponse.ok) {
-            throw new Error('방에 참가할 수 없습니다.');
-          }
-
-          // 참가 성공 후 다시 방 정보 조회
-          const finalResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-              'Authorization': `Bearer ${userToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-
-          if (!finalResponse.ok) {
-            throw new Error('방 정보를 불러올 수 없습니다.');
-          }
-
-          const data = await finalResponse.json();
-          const roomInfo: RoomData = {
-            id: data.roomCode || id,
-            name: data.name || `방 ${data.roomCode || id}`,
-            participants: data.participants || [],
-            createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
-            isValid: true
-          };
-
-          setRoomData(roomInfo);
-          loadedRoomId.current = id; // 로딩 완료된 방 ID 저장
-          console.log('방 참가 및 정보 로드 성공:', roomInfo);
-          
-        } else {
-          throw new Error(`방을 불러올 수 없습니다. (${response.status})`);
         }
-      } else {
-        // 기존 사용자 또는 새 사용자 - 바로 방 정보 로드
-        const data = await response.json();
-        const roomInfo: RoomData = {
-          id: data.roomCode || id,
-          name: data.name || `방 ${data.roomCode || id}`,
-          participants: data.participants || [],
-          createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
-          isValid: true
-        };
-
-        setRoomData(roomInfo);
-        loadedRoomId.current = id; // 로딩 완료된 방 ID 저장
-        console.log('방 정보 로드 성공:', roomInfo);
+        throw new Error(`방을 불러올 수 없습니다. (${response.status})`);
       }
+
+      const data = await response.json();
+      const roomInfo: RoomData = {
+        id: data.roomCode || id,
+        name: data.name || `방 ${data.roomCode || id}`,
+        participants: data.participants || [],
+        createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
+        isValid: true
+      };
+
+      setRoomData(roomInfo);
+      loadedRoomId.current = id; // 로딩 완료된 방 ID 저장
+      console.log('방 정보 로드 성공:', roomInfo);
 
     } catch (error) {
       console.error('방 정보 로드 실패:', error);
@@ -275,7 +262,7 @@ const RoomPage: React.FC = () => {
   }
 
   return (
-    <WebSocketProvider>
+    <WebSocketProvider roomCode={roomData.id}>
       <SidebarProvider>
         <ChatProvider>
           <div className={styles.container}>
@@ -314,7 +301,7 @@ const RoomPage: React.FC = () => {
 const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
   const { setMapCenter, performSearch } = useSidebar();
   // useSidebar 훅 추가
-  // const { searchResults, recommendations, favorites, votes } = useSidebar();
+  const { sendCursorPosition, otherUsersPositions } = useWebSocket();
   
   //  현위치 검색 버튼 표시 상태
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
@@ -448,6 +435,8 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
         // markers={mapMarkers}
         eventHandlers={mapEventHandlers}
         onMapMoved={handleMapMoved}
+        onCursorMove={(pos) => sendCursorPosition(pos)}
+        cursorPositions={[...otherUsersPositions.entries()].map(([id, pos]) => ({ id, position: pos }))}
       />
       <MapOverlay
         users={users}

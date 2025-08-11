@@ -14,7 +14,7 @@
  * - 반응형 breakpoint 적용
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { MapOverlayConfig, UserProfile, MapCenter } from '../../types';
 import styles from './MapOverlay.module.css';
 import { useWebSocket } from '../../stores/WebSocketContext';
@@ -83,23 +83,20 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
   const [showDepartureSearch, setShowDepartureSearch] = useState(config.showDepartureSearch);
   const [departureLocation, setDepartureLocation] = useState(config.departureLocation);
 
-  const { sendMessage, otherUsersCursors } = useWebSocket();
+  const { sendCursorPosition, otherUsersPositions } = useWebSocket();
 
-  // TODO: 실제 사용자 ID를 가져와야 합니다.
-  const currentUserId = 'user-' + Math.random().toString(36).substring(7);
+  const sendLatLngUpdate = useCallback(
+    debounce((center: MapCenter) => {
+      sendCursorPosition(center);
+    }, 80),
+    [sendCursorPosition]
+  );
 
-  const sendCursorUpdate = useCallback(debounce((x: number, y: number) => {
-    sendMessage({
-      type: 'cursorUpdate',
-      userId: currentUserId,
-      x,
-      y,
-    });
-  }, 50), [sendMessage, currentUserId]); // 50ms 마다 전송
-
-  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
-    sendCursorUpdate(event.clientX, event.clientY);
-  };
+  useEffect(() => {
+    if (currentMapCenter) {
+      sendLatLngUpdate(currentMapCenter);
+    }
+  }, [currentMapCenter, sendLatLngUpdate]);
 
   const handleSetDeparture = () => {
     setShowDepartureSearch(true);
@@ -132,11 +129,10 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
   };
 
   return (
-    <div
-      className={`absolute inset-0 pointer-events-none ${className}`}
-      onMouseMove={handleMouseMove}
-      style={{ cursor: 'none' }} // 기본 커서 숨기기
-    >
+      <div
+        className={`absolute inset-0 pointer-events-none ${className}`}
+        style={{ cursor: 'default' }}
+      >
       {/* 상단 출발지 검색 입력칸 (출발지 설정 버튼 클릭 시에만 표시) */}
       {showDepartureSearch && (
         <div className={styles.topSearchContainer} id="top-search-container">
@@ -216,22 +212,7 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
         ))}
       </div>
 
-      {/* 다른 사용자 커서 렌더링 */}
-      {[...otherUsersCursors.entries()].map(([userId, cursor]) => (
-        userId !== currentUserId && (
-          <div
-            key={userId}
-            className={styles.otherCursor}
-            style={{
-              transform: `translate(${cursor.x}px, ${cursor.y}px)`,
-            }}
-          >
-            {/* 커서 모양 (예: 작은 원 또는 아이콘) */}
-            <div className={styles.cursorDot}></div>
-            <div className={styles.cursorLabel}>{userId.substring(0, 4)}</div>
-          </div>
-        )
-      ))}
+      {/* 다른 사용자 커서 렌더링: lat/lng -> 화면 좌표 변환 필요 (간단히 숨김 처리 또는 추후 구현) */}
     </div>
   );
 };
