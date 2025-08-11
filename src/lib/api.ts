@@ -266,6 +266,7 @@ const toRestaurant = (doc: any): Restaurant => {
     phone: doc.phone,
     summary: doc.aiSummary,
     description: doc.aiSummary ?? undefined,
+    place_url: doc.place_url,
   };
 };
 
@@ -275,7 +276,7 @@ export const integratedSearchAPI = {
   searchAndEnrich: async (
     query: string,
     center?: MapCenter,
-    opts?: { roomCode?: string; page?: number }
+    opts?: { roomCode?: string; page?: number; size?: number }
   ): Promise<Restaurant[]> => {
     try {
       // 1) 후보 제외용 집합
@@ -291,7 +292,7 @@ export const integratedSearchAPI = {
         category_group_code: 'FD6',
         x: center?.lng ? String(center.lng) : undefined,
         y: center?.lat ? String(center.lat) : undefined,
-        size: 10,
+        size: opts?.size || 10,
         page: opts?.page || 1,
         sort: center ? 'distance' : 'accuracy',
       });
@@ -327,6 +328,7 @@ export const integratedSearchAPI = {
                 },
                 summary: d.aiSummary,
                 description: d.aiSummary ?? undefined,
+                place_url: r.place_url ?? undefined,
               } as Restaurant;
             }
             // 보강 실패 시 원본 데이터 반환
@@ -348,7 +350,7 @@ export const integratedSearchAPI = {
   /** 위치 기반(초기) + 보강 */
   searchByLocation: async (
     center: MapCenter,
-    opts?: { roomCode?: string; radiusKm?: number; page?: number }
+    opts?: { roomCode?: string; radiusKm?: number; page?: number; size?: number }
   ): Promise<Restaurant[]> => {
     try {
       let excluded = new Set<number>();
@@ -361,8 +363,8 @@ export const integratedSearchAPI = {
         category_group_code: 'FD6',
         x: String(center.lng),
         y: String(center.lat),
-        radius: (opts?.radiusKm ?? 3) * 1000,
-        size: 10,
+        radius: (opts?.radiusKm ?? 10) * 1000,
+        size: opts?.size || 10,
         page: opts?.page || 1,
         sort: 'distance',
       });

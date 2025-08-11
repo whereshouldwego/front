@@ -42,10 +42,10 @@ const ActionButtons: React.FC<Props> = ({
     onStateChange?.();
   };
 
-  const handleCandidateToggle = () => {
-    toggleCandidate(placeId);
-    onStateChange?.();
-  };
+  // const handleCandidateToggle = () => {
+  //   toggleCandidate(placeId);
+  //   onStateChange?.();
+  // };
 
   return (
     <div className={styles.actionButtons}>
@@ -68,6 +68,7 @@ const ActionButtons: React.FC<Props> = ({
           onClick={(e) => {
             e.stopPropagation();
             handleVoteToggle();
+            onStateChange?.();
           }}
           title={isVoted(placeId) ? '투표취소' : '투표하기'}
         >
@@ -80,7 +81,8 @@ const ActionButtons: React.FC<Props> = ({
           className={`${styles.actionButton} ${styles.candidateButton} ${isCandidate(placeId) ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            handleCandidateToggle();
+            toggleCandidate(placeId);
+            onStateChange?.();
           }}
           title={isCandidate(placeId) ? '후보제거' : '후보추가'}
         >

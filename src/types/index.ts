@@ -71,9 +71,10 @@ export interface Restaurant {
     address?: string | null;
     roadAddress?: string | null;
   };
+  place_url?: string;
   phone?: string;
-  summary?: string;
   reviewCount?: number;
+  summary?: string;
   // isFavorite?: boolean;
   // isCandidate?: boolean;
 }
@@ -116,7 +117,6 @@ export function localDetailToRestaurant(d: LocalDetail): Restaurant {
       roadAddress: d.roadAddress ?? undefined,
     },
     summary: d.aiSummary ?? undefined,
-    description: d.aiSummary ?? undefined,
   };
 }
 

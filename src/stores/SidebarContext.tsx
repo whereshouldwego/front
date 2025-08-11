@@ -1,218 +1,189 @@
 /**
  * SidebarContext.tsx
- * 
- * 사이드바 상태를 관리하는 Context
- * - 현재 활성화된 패널 관리
- * - 사이드바 열림/닫힘 상태 관리
+ *
+ * 사이드바 + 검색/페이지네이션 + mapCenter 전역 상태
+ * - 드래그로 mapCenter만 갱신 (네트워크 X)
+ * - performSearch() 호출 시에만 네트워크 요청
+ * - IntersectionObserver와 연동되는 loadMore()는
+ *   동시 호출 방지용 in-flight ref로 “우수수 로딩”을 차단
  */
 
-import React, { createContext, useCallback, useContext, useState } from 'react';
-import type { Restaurant, SidebarButtonType } from '../types';
+import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import type { Restaurant, SidebarButtonType, MapCenter } from '../types';
 import { integratedSearchAPI } from '../lib/api';
 
+type LastQuery = { query: string; category?: string } | null;
+
 interface SidebarContextType {
+  // 패널/사이드바
   activePanel: SidebarButtonType;
   isOpen: boolean;
-  searchResults: Restaurant[];
-  recommendations: Restaurant[];
-  favorites: Restaurant[];
-  votes: Restaurant[];
-  // 페이지네이션 상태
-  currentPage: number;
-  hasMoreResults: boolean;
-  isLoadingMore: boolean;
   setActivePanel: (panel: SidebarButtonType) => void;
   toggleSidebar: () => void;
   openSidebar: () => void;
   closeSidebar: () => void;
-  performSearch: (params: { query: string; location?: string; category?: string; limit?: number; append?: boolean }) => Promise<void>;
-  loadMoreResults: (params: { query: string; location?: string; category?: string }) => Promise<void>;
+
+  // 결과
+  searchResults: Restaurant[];
+  recommendations: Restaurant[];
+  favorites: Restaurant[];
+  votes: Restaurant[];
+
+  // 페이지네이션
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+  isLoading: boolean;
+  isLoadingMore: boolean;
+
+  // 지도 중심 (드래그로 갱신, 네트워크 X)
+  mapCenter: MapCenter | null;
+  setMapCenter: (c: MapCenter) => void;
+
+  // 검색
+  performSearch: (params: { query: string; center?: MapCenter; category?: string; location?: string; limit?: number }) => Promise<void>;
+  loadMore: () => Promise<void>;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export const useSidebar = () => {
   const context = useContext(SidebarContext);
-  if (context === undefined) {
-    throw new Error('useSidebar must be used within a SidebarProvider');
-  }
+  if (!context) throw new Error('useSidebar must be used within a SidebarProvider');
   return context;
 };
 
-interface SidebarProviderProps {
-  children: React.ReactNode;
-}
-
-export const SidebarProvider: React.FC<SidebarProviderProps> = ({ children }) => {
+export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // 패널/사이드바
   const [activePanel, setActivePanelState] = useState<SidebarButtonType>('search');
   const [isOpen, setIsOpen] = useState(true);
+
+  // 결과
   const [searchResults, setSearchResults] = useState<Restaurant[]>([]);
   const [recommendations] = useState<Restaurant[]>([]);
   const [favorites] = useState<Restaurant[]>([]);
   const [votes] = useState<Restaurant[]>([]);
-  
-  // 페이지네이션 상태 추가
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMoreResults, setHasMoreResults] = useState(true);
+
+  // 페이지네이션
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(5);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const setActivePanel = useCallback((panel: SidebarButtonType) => {
-    setActivePanelState(panel);
+  // 마지막 검색 파라미터
+  const [lastQuery, setLastQuery] = useState<LastQuery>(null);
+
+  // 지도 중심 (드래그 → 값만 갱신, 네트워크 X)
+  const [mapCenter, _setMapCenter] = useState<MapCenter | null>(null);
+  const setMapCenter = useCallback((c: MapCenter) => {
+    _setMapCenter(c);
   }, []);
 
-  const toggleSidebar = useCallback(() => {
-    setIsOpen(prev => !prev);
-  }, []);
+  // 사이드바 컨트롤
+  const setActivePanel = useCallback((panel: SidebarButtonType) => setActivePanelState(panel), []);
+  const toggleSidebar = useCallback(() => setIsOpen(v => !v), []);
+  const openSidebar = useCallback(() => setIsOpen(true), []);
+  const closeSidebar = useCallback(() => setIsOpen(false), []);
 
-  const openSidebar = useCallback(() => {
-    setIsOpen(true);
-  }, []);
+  // ✅ loadMore가 연속 호출되는 것을 1차로 막는 ref
+  const loadMoreInFlightRef = useRef(false);
 
-  const closeSidebar = useCallback(() => {
-    setIsOpen(false);
-  }, []);
-
-  const performSearch = useCallback(async (params: { 
-    query: string; 
-    location?: string; 
-    category?: string; 
-    limit?: number;
-    append?: boolean; // 결과를 기존 결과에 추가할지 여부
-  }) => {
+  /**
+   * 검색 실행(폼 제출/버튼 클릭 시): page=1부터 새로 불러오기
+   * - hasMore/page 초기화
+   * - isLoading 활성화
+   */
+  const performSearch = useCallback(async (params: { query: string; center?: MapCenter; category?: string; location?: string; limit?: number }) => {
+    setIsLoading(true);
     try {
-      let restaurants: Restaurant[] = [];
-      
-      if (params.query.trim()) {
-        // 키워드 검색
-        const center = params.location ? {
-          lat: parseFloat(params.location.split(',')[0]),
-          lng: parseFloat(params.location.split(',')[1])
-        } : undefined;
-        
-        restaurants = await integratedSearchAPI.searchAndEnrich(
-          params.query,
-          center,
-          { roomCode: undefined }
-        );
-      } else if (params.location) {
-        // 위치 기반 검색
-        const center = {
-          lat: parseFloat(params.location.split(',')[0]),
-          lng: parseFloat(params.location.split(',')[1])
-        };
-        
-        restaurants = await integratedSearchAPI.searchByLocation(
-          center,
-          { roomCode: undefined, radiusKm: 3 }
-        );
-      }
-      
-      // 결과 수 제한
-      if (params.limit) {
-        restaurants = restaurants.slice(0, params.limit);
-      }
-      
-      // 결과 설정 (추가 모드인지 새 검색인지에 따라)
-      if (params.append) {
-        setSearchResults(prev => [...prev, ...restaurants]);
-      } else {
-        setSearchResults(restaurants);
-        setCurrentPage(1);
-        setHasMoreResults(true);
-      }
-      
-      console.log('검색 완료:', restaurants.length, '개 결과', params.append ? '(추가됨)' : '(새 검색)');
-      
-    } catch (error) {
-      console.error('검색 실패:', error);
-      if (!params.append) {
-        setSearchResults([]);
-      }
-    }
-  }, []);
+      const center = params.center ?? mapCenter ?? { lat: 37.5002, lng: 127.0364 };
 
-  // 더 많은 결과 로드 (페이지네이션)
-  const loadMoreResults = useCallback(async (params: {
-    query: string;
-    location?: string;
-    category?: string;
-  }) => {
-    if (isLoadingMore || !hasMoreResults) {
-      return;
-    }
+      // 키워드 검색 vs 위치 검색 분기
+      const data = params.query.trim()
+        ? await integratedSearchAPI.searchAndEnrich(params.query, center, { page: 1, size: pageSize } as any)
+        : await integratedSearchAPI.searchByLocation(center, { page: 1, size: pageSize } as any);
 
-    setIsLoadingMore(true);
-    try {
-      const nextPage = currentPage + 1;
-      let restaurants: Restaurant[] = [];
-      
-      if (params.query.trim()) {
-        // 키워드 검색 - 다음 페이지
-        const center = params.location ? {
-          lat: parseFloat(params.location.split(',')[0]),
-          lng: parseFloat(params.location.split(',')[1])
-        } : undefined;
-        
-        restaurants = await integratedSearchAPI.searchAndEnrich(
-          params.query,
-          center,
-          { roomCode: undefined, page: nextPage }
-        );
-      } else if (params.location) {
-        // 위치 기반 검색 - 다음 페이지
-        const center = {
-          lat: parseFloat(params.location.split(',')[0]),
-          lng: parseFloat(params.location.split(',')[1])
-        };
-        
-        restaurants = await integratedSearchAPI.searchByLocation(
-          center,
-          { roomCode: undefined, radiusKm: 3, page: nextPage }
-        );
-      }
-
-      if (restaurants.length > 0) {
-        // 기존 결과에 추가
-        setSearchResults(prev => [...prev, ...restaurants]);
-        setCurrentPage(nextPage);
-        setHasMoreResults(restaurants.length >= 10); // 10개 미만이면 더 이상 결과 없음
-        console.log(`✅ ${nextPage}페이지 결과 ${restaurants.length}개 추가됨`);
-      } else {
-        setHasMoreResults(false);
-        console.log('더 이상 결과가 없습니다.');
-      }
-      
-    } catch (error) {
-      console.error('추가 결과 로드 실패:', error);
+      setSearchResults(data);
+      setPage(1);
+      setHasMore(data.length >= pageSize);
+      setLastQuery({ query: params.query.trim(), category: params.category });
+      setActivePanel('search');
+    } catch (e) {
+      console.error('[performSearch] 실패:', e);
+      setSearchResults([]);
+      setHasMore(false);
     } finally {
+      setIsLoading(false);
+      // 안전빵: 새 검색 시 in-flight 상태 초기화
+      loadMoreInFlightRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [currentPage, hasMoreResults, isLoadingMore]);
+  }, [mapCenter, pageSize]);
+
+  /**
+   * 무한 스크롤: 동일 파라미터로 page+1 호출해서 5개 추가
+   * - isLoading / isLoadingMore / inFlightRef 로 3중 가드
+   */
+  const loadMore = useCallback(async () => {
+    if (isLoading || isLoadingMore || !hasMore || loadMoreInFlightRef.current) return;
+
+    setIsLoadingMore(true);
+    loadMoreInFlightRef.current = true; // ✅ 동시에 여러번 들어오는 것 차단
+    try {
+      const nextPage = page + 1;
+      const center = mapCenter ?? { lat: 37.5002, lng: 127.0364 };
+
+      const delay = new Promise<void>(res => setTimeout(res, 1000)); // ⭐ 1초 지연
+      const fetchPromise = (lastQuery?.query ?? '').trim()
+        ? integratedSearchAPI.searchAndEnrich(lastQuery!.query, center, { page: nextPage, size: pageSize } as any)
+        : integratedSearchAPI.searchByLocation(center, { page: nextPage, size: pageSize } as any);
+
+      // 두 작업을 동시에 기다리되, 결과는 fetchPromise의 반환값 사용
+      const [data] = await Promise.all([fetchPromise, delay]) as [Restaurant[], void];
+
+      if (data.length > 0) {
+        setSearchResults(prev => [...prev, ...data]);
+        setPage(nextPage);
+        setHasMore(data.length >= pageSize);
+      } else {
+        setHasMore(false);
+      }
+    } catch (e) {
+      console.error('[loadMore] 실패:', e);
+    } finally {
+      setIsLoadingMore(false);
+      loadMoreInFlightRef.current = false; // ✅ 호출 종료
+    }
+  }, [isLoading, isLoadingMore, hasMore, page, pageSize, lastQuery, mapCenter]);
 
   const value: SidebarContextType = {
     activePanel,
     isOpen,
-    searchResults,
-    recommendations,
-    favorites,
-    votes,
-    // 페이지네이션 상태
-    currentPage,
-    hasMoreResults,
-    isLoadingMore,
     setActivePanel,
     toggleSidebar,
     openSidebar,
     closeSidebar,
+
+    searchResults,
+    recommendations,
+    favorites,
+    votes,
+
+    page,
+    pageSize,
+    hasMore,
+    isLoading,
+    isLoadingMore,
+
+    mapCenter,
+    setMapCenter,
+
     performSearch,
-    loadMoreResults,
+    loadMore,
   };
 
-  return (
-    <SidebarContext.Provider value={value}>
-      {children}
-    </SidebarContext.Provider>
-  );
+  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
 };
 
 export default SidebarContext;
