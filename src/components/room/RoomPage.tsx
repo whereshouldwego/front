@@ -268,7 +268,7 @@ const RoomPage: React.FC = () => {
   return (
     <WebSocketProvider roomCode={roomData.id}>
       <SidebarProvider>
-        <ChatProvider>
+        <ChatProvider roomCode={roomData.id}>
           <div className={styles.container}>
             {/* 메인 앱 - 전체 화면 서비스 */}
             <div className={styles.mainApp}>

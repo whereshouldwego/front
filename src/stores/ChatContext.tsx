@@ -9,9 +9,11 @@
  */
 
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { ChatMessage, ChatRequest } from '../types';
-import { chatAPI, isApiSuccess, isApiError } from '../lib/api';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import type { ChatMessage } from '../types';
+import { chatAPI } from '../lib/api';
+import SockJS from 'sockjs-client';
+import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs';
 
 interface ChatContextType {
   messages: ChatMessage[];
@@ -34,114 +36,143 @@ export const useChat = () => {
 
 interface ChatProviderProps {
   children: React.ReactNode;
+  roomCode?: string; // 현재 방 코드
 }
 
-export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      type: 'bot',
-      content: '안녕하세요! 맛돌이입니다. 어떤 음식을 찾고 계신가요?',
-      timestamp: new Date().toISOString(),
-      roomCode: '1234567890',
-      userId: 1234567890,
-      createdAt: new Date().toISOString()
-    }
-  ]);
+export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const clientRef = useRef<Client | null>(null);
+  const subscriptionRef = useRef<StompSubscription | null>(null);
+  const userIdRef = useRef<string>('');
+  const cacheKeyRef = useRef<string>('');
 
-  const sendMessage = useCallback(async (message: string) => {
-    if (!message.trim()) return;
+  const getCacheKey = useCallback((code: string) => `chat_history_${code}`, []);
+  const loadCache = useCallback((code: string): ChatMessage[] => {
+    try {
+      const raw = localStorage.getItem(getCacheKey(code));
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr as ChatMessage[] : [];
+    } catch { return []; }
+  }, [getCacheKey]);
+  const saveCache = useCallback((code: string, msgs: ChatMessage[]) => {
+    try { localStorage.setItem(getCacheKey(code), JSON.stringify(msgs)); } catch {}
+  }, [getCacheKey]);
 
-    // 사용자 메시지 추가
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: message,
-      timestamp: new Date().toISOString(),
-      roomCode: '1234567890',
-      userId: 1234567890,
-      createdAt: new Date().toISOString()
+  // 내 사용자 ID 로드
+  useEffect(() => {
+    userIdRef.current = localStorage.getItem('userId') || '';
+  }, []);
+
+  // STOMP 연결 및 구독, 히스토리 로드
+  useEffect(() => {
+    if (!roomCode) return;
+
+    let isActive = true;
+    const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '';
+    const endpoint = `${String(API_BASE_URL).replace(/\/$/, '')}/ws`;
+    cacheKeyRef.current = getCacheKey(roomCode);
+
+    // 우선 로컬 캐시 복원 (즉시 표시)
+    const cached = loadCache(roomCode);
+    if (cached.length > 0) setMessages(cached);
+
+    const client = new Client({
+      // SockJS를 사용한 연결
+      webSocketFactory: () => new SockJS(endpoint),
+      reconnectDelay: 1500,
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
+      onStompError: (frame) => {
+        console.error('[STOMP ERROR]', frame.headers['message'], frame.body);
+        if (isActive) setError('채팅 서버 오류가 발생했습니다.');
+      },
+      onWebSocketError: (evt) => {
+        console.error('[WS ERROR]', evt);
+        if (isActive) setError('네트워크 오류가 발생했습니다.');
+      },
+    });
+
+    client.onConnect = async () => {
+      // 방 히스토리 로드 → 기존 메시지와 머지
+      try {
+        const history = await chatAPI.getRoomHistory(roomCode);
+        if (Array.isArray(history)) {
+          setMessages((prev) => {
+            const uniq = new Map<string, ChatMessage>();
+            const keyOf = (m: ChatMessage) => `${m.id ?? ''}|${m.createdAt ?? ''}|${m.content ?? ''}`;
+            prev.forEach((m) => uniq.set(keyOf(m), m));
+            history.forEach((m) => uniq.set(keyOf(m), m));
+            const merged = Array.from(uniq.values()).sort((a, b) =>
+              String(a.createdAt).localeCompare(String(b.createdAt))
+            );
+            saveCache(roomCode, merged);
+            return merged;
+          });
+        }
+      } catch (e) {
+        console.warn('[CHAT] history load failed', e);
+      }
+
+      // 구독 설정 (히스토리 로드 후)
+      const destination = `/topic/chat.${roomCode}`;
+      subscriptionRef.current?.unsubscribe();
+      subscriptionRef.current = client.subscribe(destination, (msg: IMessage) => {
+        try {
+          const data = JSON.parse(msg.body) as ChatMessage;
+          if (!data.createdAt) (data as any).createdAt = new Date().toISOString();
+          setMessages((prev) => {
+            const next = [...prev, data];
+            saveCache(roomCode, next);
+            return next;
+          });
+        } catch (e) {
+          console.warn('[STOMP] invalid message', e);
+        }
+      });
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setLoading(true);
-    setError(null);
+    client.activate();
+    clientRef.current = client;
+
+    return () => {
+      isActive = false;
+      try { subscriptionRef.current?.unsubscribe(); } catch {}
+      try { client.deactivate(); } catch {}
+      clientRef.current = null;
+      subscriptionRef.current = null;
+    };
+  }, [roomCode]);
+
+  const sendMessage = useCallback(async (message: string) => {
+    if (!message.trim() || !roomCode) return;
+    const client = clientRef.current;
+    if (!client || !client.connected) return;
+
+    const payload = {
+      roomCode: roomCode,
+      userId: userIdRef.current ? Number(userIdRef.current) : null,
+      content: message,
+    };
 
     try {
-      // API 요청
-      const request: ChatRequest = {
-        userId: 'current-user', // 실제로는 사용자 ID를 가져와야 함
-        message: message,
-        context: {
-          history: messages.slice(-5) // 최근 5개 메시지만 컨텍스트로 전송
-        }
-      };
-
-      const response = await chatAPI.sendMessage(request);
-      
-      if (isApiSuccess(response)) {
-        // 봇 응답 추가
-        const botMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          type: 'bot',
-          content: response.data.message || '응답을 받았습니다.',
-          timestamp: new Date().toISOString(),
-          roomCode: '1234567890',
-          userId: 1234567890,
-          createdAt: new Date().toISOString()
-        };
-
-        setMessages(prev => [...prev, botMessage]);
-      } else if (isApiError(response)) {
-        setError(response.error.message || '메시지 전송 중 오류가 발생했습니다.');
-        
-        // 에러 메시지 추가
-        const errorMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          type: 'bot',
-          content: '죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해주세요.',
-          timestamp: new Date().toISOString(),
-          roomCode: '1234567890',
-          userId: 1234567890,
-          createdAt: new Date().toISOString()
-        };
-
-        setMessages(prev => [...prev, errorMessage]);
-      }
-    } catch (error) {
+      setLoading(true);
+      client.publish({
+        destination: `/ws/chat.${roomCode}`,
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      console.error('[STOMP publish error]', e);
       setError('메시지 전송 중 오류가 발생했습니다.');
-      
-      // 에러 메시지 추가
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        type: 'bot',
-        content: '죄송합니다. 네트워크 오류가 발생했습니다. 다시 시도해주세요.',
-        timestamp: new Date().toISOString(),
-        roomCode: '1234567890',
-        userId: 1234567890,
-        createdAt: new Date().toISOString()
-      };
-
-      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }
-  }, [messages]);
+  }, [roomCode]);
 
   const clearMessages = useCallback(() => {
-    setMessages([
-      {
-        id: '1',
-        type: 'bot',
-        content: '안녕하세요! 맛돌이입니다. 어떤 음식을 찾고 계신가요?',
-        timestamp: new Date().toISOString(),
-        roomCode: '1237890',
-        userId: 1234567890,
-        createdAt: new Date().toISOString()
-      }
-    ]);
+    setMessages([]);
     setError(null);
   }, []);
 

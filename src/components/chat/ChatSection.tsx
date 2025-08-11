@@ -16,7 +16,7 @@
  * - ChatContext: 채팅 상태 관리
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { useChat } from '../../stores/ChatContext'; // Updated import
 import type { ChatMessage } from '../../types';
 import styles from './ChatSection.module.css';
@@ -28,6 +28,8 @@ interface ChatSectionProps {
 const ChatSection: React.FC<ChatSectionProps> = () => {
   const { messages, loading, sendMessage} = useChat();
   const [inputValue, setInputValue] = useState('');
+  const selfUserId = useMemo(() => localStorage.getItem('userId') || '', []);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,25 +46,35 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
     });
   };
 
+  // 새 메시지 도착 시 하단으로 스크롤
+  useEffect(() => {
+    if (!listRef.current) return;
+    listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [messages]);
+
   return (
     <div className={styles.chatSection}>
       {/* 메시지 목록 */}
-      <div className={styles.messagesContainer}>
-        {messages.map((msg: ChatMessage) => (
+      <div className={styles.messagesContainer} ref={listRef}>
+        {messages.map((msg: ChatMessage) => {
+          const isMine = String(msg.userId ?? '') === String(selfUserId);
+          const createdAt = msg.createdAt || msg.timestamp || new Date().toISOString();
+          return (
           <div
             key={msg.id}
             className={`${styles.message} ${
-              msg.type === 'user' ? styles.userMessage : styles.botMessage
+              isMine ? styles.userMessage : styles.botMessage
             }`}
           >
             <div className={styles.messageContent}>
               <p className={styles.messageText}>{msg.content}</p>
               <span className={styles.messageTime}>
-                {formatTime(new Date(msg.timestamp || new Date().toISOString()))}
+                {formatTime(new Date(createdAt))}
               </span>
             </div>
           </div>
-        ))}
+          );
+        })}
         
         {loading && (
           <div className={`${styles.message} ${styles.botMessage}`}>

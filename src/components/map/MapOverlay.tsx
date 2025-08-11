@@ -83,7 +83,7 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
   const [showDepartureSearch, setShowDepartureSearch] = useState(config.showDepartureSearch);
   const [departureLocation, setDepartureLocation] = useState(config.departureLocation);
 
-  const { sendCursorPosition, otherUsersPositions } = useWebSocket();
+  const { sendCursorPosition } = useWebSocket();
 
   const sendLatLngUpdate = useCallback(
     debounce((center: MapCenter) => {

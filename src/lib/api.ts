@@ -3,6 +3,7 @@ import type {
   Restaurant,
   ChatRequest,
   ChatResponse,
+  ChatMessage,
   LocationUpdateRequest,
   LocationUpdateResponse,
   ApiResponse,
@@ -471,6 +472,19 @@ export const chatAPI = {
     return apiRequest<ChatResponse>(`/api/chat/history/${userId}`, {
       method: 'GET',
     });
+  },
+
+  // 방별 채팅 히스토리 (백엔드와 일치)
+  getRoomHistory: async (roomCode: string): Promise<ChatMessage[]> => {
+    const res = await fetch(`${API_BASE_URL}/api/chat/history/${encodeURIComponent(roomCode)}`);
+    if (!res.ok) return [];
+    try {
+      const data = await res.json();
+      if (Array.isArray(data)) return data as ChatMessage[];
+      return [];
+    } catch {
+      return [];
+    }
   },
 };
 

@@ -5,6 +5,10 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    // Fix libraries expecting Node's global in browser (e.g., sockjs-client)
+    global: 'window'
+  },
   server: {
     port: 5173, // 5174에서 5173으로 변경
     host: true
