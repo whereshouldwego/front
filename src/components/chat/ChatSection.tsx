@@ -86,7 +86,7 @@ const ChatSection: React.FC<ChatSectionProps> = ({ onAuroraToggle }) => {
             <div className={styles.messageContent}>
               <p className={styles.messageText}>{msg.content}</p>
               <span className={styles.messageTime}>
-                {formatTime(msg.timestamp)}
+                {formatTime(new Date(msg.timestamp || new Date().toISOString()))}
               </span>
             </div>
           </div>

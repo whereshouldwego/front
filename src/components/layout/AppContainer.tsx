@@ -24,18 +24,16 @@
 
 import React, { useMemo, useState } from 'react';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
-import { restaurantData } from '../../data/restaurantData';
 import { ChatProvider } from '../../stores/ChatContext';
 import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
 import { WebSocketProvider, useWebSocket } from '../../stores/WebSocketContext';
-import type { MapCenter, MapEventHandlers, MapMarker, UserProfile } from '../../types';
+import type { MapCenter, MapEventHandlers, MapMarker, Restaurant, UserProfile } from '../../types';
 import ChatSection from '../chat/ChatSection';
 import InitialScreen from '../initial/InitialScreen';
 import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
 import RoomPage from '../room/RoomPage';
 import { Sidebar } from '../sidebar';
-
 // 메인 서비스 컴포넌트 (기존 MainContent)
 const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
   const { searchResults, recommendations, favorites, votes, performSearch } = useSidebar();
@@ -80,9 +78,10 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
 
   // 현재 활성 패널에 따른 마커 데이터 생성
   const mapMarkers = useMemo((): MapMarker[] => {
-    let restaurants = restaurantData.search || [];
-    
-    // 활성 패널에 따른 데이터 선택
+    // ❌ let restaurants = restaurantData.search || [];
+    let restaurants: Restaurant[] = []; // ✅ 더미 제거
+  
+    // 활성 패널 우선순위로 대체
     if (searchResults.length > 0) {
       restaurants = searchResults;
     } else if (recommendations.length > 0) {
@@ -92,19 +91,19 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
     } else if (votes.length > 0) {
       restaurants = votes;
     }
-
-    return restaurants.map(restaurant => ({
-      id: restaurant.id,
-      position: {
-        lat: restaurant.location.lat,
-        lng: restaurant.location.lng
-      },
-      title: restaurant.name,
-      category: restaurant.category,
-      restaurant: restaurant
-    }));
+  
+    // 좌표 없는 항목은 마커 생성에서 제외 (NaN 대비)
+    return restaurants
+      .filter(r => Number.isFinite(r.location?.lat) && Number.isFinite(r.location?.lng))
+      .map((r) => ({
+        id: String(r.placeId),
+        position: { lat: r.location.lat, lng: r.location.lng },
+        title: r.name,
+        category: r.category ?? undefined,     // MapMarker.category?: string
+        restaurant: r,
+      }));
   }, [searchResults, recommendations, favorites, votes]);
-
+  
 
   // 이벤트 핸들러들
   const handleAuroraToggle = (isActive: boolean) => {

@@ -1,70 +1,90 @@
 import React from 'react';
 import styles from './ActionButtons.module.css';
+import { useRestaurantStore } from '../../stores/RestaurantStore';
 
-interface ActionButtonsProps {
-  restaurantId: string;
+interface Props {
+  userId: number;
+  placeId: number;
   showFavoriteButton?: boolean;
   showVoteButton?: boolean;
   showCandidateButton?: boolean;
-  onFavoriteClick?: (restaurantId: string) => void;
-  onVoteClick?: (restaurantId: string) => void;
-  onCandidateClick?: (restaurantId: string) => void;
-  isFavorited?: boolean;
-  isVoted?: boolean;
-  isCandidate?: boolean;
-  voteCount?: number;
+  onStateChange?: () => void;
 }
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({
-  showFavoriteButton = false,
-  showVoteButton = false,
-  showCandidateButton = false,
-  onFavoriteClick,
-  onVoteClick,
-  onCandidateClick,
-  isFavorited = false,
-  isVoted = false,
-  isCandidate = false,
-  restaurantId
+const ActionButtons: React.FC<Props> = ({
+  userId,
+  placeId,
+  showFavoriteButton, 
+  showVoteButton, 
+  showCandidateButton,
+  onStateChange
 }) => {
+  const {
+    isFavorited,
+    isVoted,
+    isCandidate,
+    toggleFavorite,
+    toggleVote,
+    toggleCandidate,
+  } = useRestaurantStore();
+
+  const handleFavoriteToggle = async () => {
+    try {
+      await toggleFavorite(placeId, userId);
+      onStateChange?.();
+    } catch (error: any) {
+      alert(error?.message ?? '찜 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleVoteToggle = () => {
+    toggleVote(placeId);
+    onStateChange?.();
+  };
+
+  const handleCandidateToggle = () => {
+    toggleCandidate(placeId);
+    onStateChange?.();
+  };
+
   return (
     <div className={styles.actionButtons}>
       {showFavoriteButton && (
         <button
-          className={`${styles.actionButton} ${styles.favoriteButton} ${isFavorited ? styles.active : ''}`}
+          className={`${styles.actionButton} ${styles.favoriteButton} ${isFavorited(placeId) ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            onFavoriteClick?.(restaurantId);
+            void handleFavoriteToggle();
           }}
-          title={isFavorited ? '찜해제' : '찜하기'}
+          title={isFavorited(placeId) ? '찜해제' : '찜하기'}
         >
-          {isFavorited ? '❤️' : '🤍'}
+          {isFavorited(placeId) ? '❤️' : '🤍'}
         </button>
       )}
       
       {showVoteButton && (
         <button
-          className={`${styles.actionButton} ${styles.voteButton} ${isVoted ? styles.active : ''}`}
+          className={`${styles.actionButton} ${styles.voteButton} ${isVoted(placeId) ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            onVoteClick?.(restaurantId);
+            handleVoteToggle();
           }}
-          title={isVoted ? '투표취소' : '투표하기'}
+          title={isVoted(placeId) ? '투표취소' : '투표하기'}
         >
-          {isVoted ? '✅' : '🗳️'}
+          {isVoted(placeId) ? '✅' : '☑️'}
         </button>
       )}
       
       {showCandidateButton && (
         <button
-          className={`${styles.actionButton} ${styles.candidateButton} ${isCandidate ? styles.active : ''}`}
+          className={`${styles.actionButton} ${styles.candidateButton} ${isCandidate(placeId) ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            onCandidateClick?.(restaurantId);
+            handleCandidateToggle();
           }}
-          title={isCandidate ? '후보제거' : '후보추가'}
+          title={isCandidate(placeId) ? '후보제거' : '후보추가'}
         >
-          {isCandidate ? '⭐' : '☆'}
+          {isCandidate(placeId) ? '📤' : '📥'}
         </button>
       )}
     </div>

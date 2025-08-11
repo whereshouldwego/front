@@ -42,7 +42,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       id: '1',
       type: 'bot',
       content: '안녕하세요! 맛돌이입니다. 어떤 음식을 찾고 계신가요?',
-      timestamp: new Date()
+      timestamp: new Date().toISOString(),
+      roomCode: '1234567890',
+      userId: 1234567890,
+      createdAt: new Date().toISOString()
     }
   ]);
   const [loading, setLoading] = useState(false);
@@ -56,7 +59,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       id: Date.now().toString(),
       type: 'user',
       content: message,
-      timestamp: new Date()
+      timestamp: new Date().toISOString(),
+      roomCode: '1234567890',
+      userId: 1234567890,
+      createdAt: new Date().toISOString()
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -81,7 +87,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
           id: (Date.now() + 1).toString(),
           type: 'bot',
           content: response.data.message || '응답을 받았습니다.',
-          timestamp: new Date()
+          timestamp: new Date().toISOString(),
+          roomCode: '1234567890',
+          userId: 1234567890,
+          createdAt: new Date().toISOString()
         };
 
         setMessages(prev => [...prev, botMessage]);
@@ -93,7 +102,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
           id: (Date.now() + 1).toString(),
           type: 'bot',
           content: '죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해주세요.',
-          timestamp: new Date()
+          timestamp: new Date().toISOString(),
+          roomCode: '1234567890',
+          userId: 1234567890,
+          createdAt: new Date().toISOString()
         };
 
         setMessages(prev => [...prev, errorMessage]);
@@ -106,7 +118,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         id: (Date.now() + 1).toString(),
         type: 'bot',
         content: '죄송합니다. 네트워크 오류가 발생했습니다. 다시 시도해주세요.',
-        timestamp: new Date()
+        timestamp: new Date().toISOString(),
+        roomCode: '1234567890',
+        userId: 1234567890,
+        createdAt: new Date().toISOString()
       };
 
       setMessages(prev => [...prev, errorMessage]);
@@ -121,7 +136,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         id: '1',
         type: 'bot',
         content: '안녕하세요! 맛돌이입니다. 어떤 음식을 찾고 계신가요?',
-        timestamp: new Date()
+        timestamp: new Date().toISOString(),
+        roomCode: '1237890',
+        userId: 1234567890,
+        createdAt: new Date().toISOString()
       }
     ]);
     setError(null);

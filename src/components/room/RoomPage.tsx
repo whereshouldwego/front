@@ -344,31 +344,31 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
   ]);
 
   // 지도 마커 데이터 (사이드바 결과 반영)
-  const mapMarkers: MapMarker[] = React.useMemo(() => {
-    let restaurants = restaurantData.search || [];
+  // const mapMarkers: MapMarker[] = React.useMemo(() => {
+  //   let restaurants = restaurantData.search || [];
     
-    // 활성 패널에 따른 데이터 선택
-    if (searchResults.length > 0) {
-      restaurants = searchResults;
-    } else if (recommendations.length > 0) {
-      restaurants = recommendations;
-    } else if (favorites.length > 0) {
-      restaurants = favorites;
-    } else if (votes.length > 0) {
-      restaurants = votes;
-    }
+  //   // 활성 패널에 따른 데이터 선택
+  //   if (searchResults.length > 0) {
+  //     restaurants = searchResults;
+  //   } else if (recommendations.length > 0) {
+  //     restaurants = recommendations;
+  //   } else if (favorites.length > 0) {
+  //     restaurants = favorites;
+  //   } else if (votes.length > 0) {
+  //     restaurants = votes;
+  //   }
 
-    return restaurants.map(restaurant => ({
-      id: restaurant.id,
-      position: {
-        lat: restaurant.location.lat,
-        lng: restaurant.location.lng
-      },
-      title: restaurant.name,
-      category: restaurant.category,
-      restaurant: restaurant
-    }));
-  }, [searchResults, recommendations, favorites, votes]);
+  //   return restaurants.map(restaurant => ({
+  //     id: restaurant.placeId,
+  //     position: {
+  //       lat: restaurant.location.lat,
+  //       lng: restaurant.location.lng
+  //     },
+  //     title: restaurant.name,
+  //     category: restaurant.category,
+  //     restaurant: restaurant
+  //   }));
+  // }, [searchResults, recommendations, favorites, votes]);
 
   // 이벤트 핸들러들
   const handleAuroraToggle = (isActive: boolean) => {
@@ -434,8 +434,20 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
     onMarkerClick: (markerId: string) => {
       console.log('마커 클릭:', markerId, '방 ID:', roomId);
     },
-    onMapDragEnd: (center: MapCenter) => {
+    onMapDragEnd: async (center: MapCenter) => {
       console.log('지도 드래그 종료:', center, '방 ID:', roomId);
+      
+      // 드래그할 때마다 더 많은 결과 로드
+      try {
+        await loadMoreResults({
+          query: '', // 빈 쿼리로 위치 기반 검색
+          location: `${center.lat},${center.lng}`,
+          category: ''
+        });
+        console.log('✅ 드래그로 추가 결과 로드 완료');
+      } catch (error) {
+        console.error('❌ 드래그로 추가 결과 로드 실패:', error);
+      }
     },
     onMapZoomChanged: (level: number) => {
       console.log('지도 줌 변경:', level, '방 ID:', roomId);
@@ -457,7 +469,7 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
       }}
     >
       <MapContainer
-        markers={mapMarkers}
+        // markers={mapMarkers}
         eventHandlers={mapEventHandlers}
         onMapMoved={handleMapMoved}
         onCursorMove={(pos) => sendCursorPosition(pos)}

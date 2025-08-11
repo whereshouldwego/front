@@ -21,7 +21,6 @@
   }
   
   .actionButton:hover {
-    background-color: rgba(0, 0, 0, 0.05);
     transform: scale(1.1);
   }
   
