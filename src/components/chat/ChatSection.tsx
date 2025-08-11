@@ -25,10 +25,9 @@ interface ChatSectionProps {
   onAuroraToggle?: (isActive: boolean) => void;
 }
 
-const ChatSection: React.FC<ChatSectionProps> = ({ onAuroraToggle }) => {
-  const { messages, loading, sendMessage, clearMessages } = useChat();
+const ChatSection: React.FC<ChatSectionProps> = () => {
+  const { messages, loading, sendMessage} = useChat();
   const [inputValue, setInputValue] = useState('');
-  const [isAuroraActive, setIsAuroraActive] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,12 +35,6 @@ const ChatSection: React.FC<ChatSectionProps> = ({ onAuroraToggle }) => {
 
     await sendMessage(inputValue.trim());
     setInputValue('');
-  };
-
-  const handleAuroraToggle = () => {
-    const newState = !isAuroraActive;
-    setIsAuroraActive(newState);
-    onAuroraToggle?.(newState);
   };
 
   const formatTime = (date: Date): string => {
@@ -53,27 +46,6 @@ const ChatSection: React.FC<ChatSectionProps> = ({ onAuroraToggle }) => {
 
   return (
     <div className={styles.chatSection}>
-      {/* 채팅 헤더 */}
-      <div className={styles.chatHeader}>
-        <h3 className={styles.chatTitle}>AI 어시스턴트</h3>
-        <div className={styles.chatControls}>
-          <button
-            className={`${styles.auroraButton} ${isAuroraActive ? styles.active : ''}`}
-            onClick={handleAuroraToggle}
-            title="Aurora 모드"
-          >
-            🌟
-          </button>
-          <button
-            className={styles.clearButton}
-            onClick={clearMessages}
-            title="채팅 초기화"
-          >
-            🗑️
-          </button>
-        </div>
-      </div>
-
       {/* 메시지 목록 */}
       <div className={styles.messagesContainer}>
         {messages.map((msg: ChatMessage) => (
