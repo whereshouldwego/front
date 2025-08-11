@@ -16,7 +16,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Map, MapMarker } from 'react-kakao-maps-sdk';
+import { Map, MapMarker, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import type { MapMarker as MapMarkerType, MapEventHandlers, MapCenter } from '../../types';
 
 // MapContainer 컴포넌트 props 인터페이스
@@ -26,6 +26,8 @@ interface MapContainerProps {
   className?: string;
   onMapMoved?: (center: MapCenter) => void;
   onMapIdle?: (center: MapCenter) => void;
+  onCursorMove?: (center: MapCenter) => void;
+  cursorPositions?: { id: string; position: MapCenter }[];
 }
 
 // 기본 지도 설정 (역삼역 중심)
@@ -39,12 +41,37 @@ const MapContainer: React.FC<MapContainerProps> = ({
   eventHandlers,
   className = '',
   onMapMoved,
-  onMapIdle
+  onMapIdle,
+  onCursorMove,
+  cursorPositions = []
 }) => {
   const [isKakaoMapLoaded, setIsKakaoMapLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [currentCenter, setCurrentCenter] = useState<MapCenter>(defaultCenter);
   const mapRef = useRef<any>(null);
+  const mapObjectRef = useRef<any>(null);
+  const throttledOnCursorMove = useRef<((center: MapCenter) => void) | null>(null);
+
+  // 8~12Hz 스로틀: 약 80~120ms 주기로 전송 (기본 80ms)
+  useEffect(() => {
+    if (!onCursorMove) {
+      throttledOnCursorMove.current = null;
+      return;
+    }
+    let timeout: any = null;
+    const fn = (center: MapCenter) => {
+      if (timeout) return;
+      timeout = setTimeout(() => {
+        timeout = null;
+      }, 80);
+      onCursorMove(center);
+    };
+    throttledOnCursorMove.current = fn;
+    return () => {
+      throttledOnCursorMove.current = null;
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [onCursorMove]);
 
   // 카카오맵 SDK 로드 확인
   useEffect(() => {
@@ -70,6 +97,17 @@ const MapContainer: React.FC<MapContainerProps> = ({
 
     return () => clearTimeout(timer);
   }, []);
+
+  // 지도 인스턴스 생성 시 마우스 무브 이벤트 바인딩
+  const handleMapCreate = (map: any) => {
+    mapObjectRef.current = map;
+    if (window.kakao && window.kakao.maps) {
+      window.kakao.maps.event.addListener(map, 'mousemove', (mouseEvent: any) => {
+        const latlng = mouseEvent.latLng;
+        throttledOnCursorMove.current?.({ lat: latlng.getLat(), lng: latlng.getLng() });
+      });
+    }
+  };
 
   // 지도 클릭 이벤트 핸들러
   const handleMapClick = (_map: any, mouseEvent: any) => {
@@ -126,7 +164,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
 
   // 외부에서 지도 중심점에 접근할 수 있도록 ref 설정
   useEffect(() => {
-    if (mapRef.current) {
+    if (mapRef.current) { 
       mapRef.current.getCurrentCenter = getCurrentCenter;
     }
   }, [currentCenter]);
@@ -172,6 +210,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         onDragEnd={handleMapDragEnd}
         onIdle={handleMapIdle}
         onZoomChanged={handleMapZoomChanged}
+        onCreate={handleMapCreate}
       >
         {/* 마커들 렌더링 */}
         {markers.map((markerData) => (
@@ -193,9 +232,51 @@ const MapContainer: React.FC<MapContainerProps> = ({
             )}
           </MapMarker>
         ))}
+
+        {/* 다른 사용자 커서 위치 렌더링 */}
+        {cursorPositions.map((cp) => (
+          <CustomOverlayMap key={cp.id} position={cp.position} zIndex={1000}>
+            <div style={{ display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+              {/* Cursor arrow shape with per-user color */}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill={stringToColor(cp.id)} stroke="#ffffff" strokeWidth="1" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}>
+                <path d="M3 2l7 17 2-6 6-2L3 2z" />
+              </svg>
+              <div style={{
+                marginLeft: 6,
+                background: 'rgba(0,0,0,0.7)',
+                color: '#fff',
+                padding: '2px 6px',
+                borderRadius: 4,
+                fontSize: 10,
+                fontWeight: 600,
+                whiteSpace: 'nowrap'
+              }}>
+                {getUserNickname(cp.id)}
+              </div>
+            </div>
+          </CustomOverlayMap>
+        ))}
       </Map>
     </div>
   );
 };
+
+// 사용자 ID로부터 안정적인 색상 생성
+function stringToColor(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+  const hue = hash % 360;
+  return `hsl(${hue}, 75%, 45%)`;
+}
+
+// 표시용 닉네임 결정: 로컬스토리지의 본인 닉네임과 매칭하거나, 일부 잘라서 표시
+function getUserNickname(userId: string): string {
+  const selfId = localStorage.getItem('userId') || '';
+  if (String(selfId) === String(userId)) {
+    return localStorage.getItem('userNickname') || '나';
+  }
+  // 다른 사용자: 접두 4글자
+  return userId.slice(0, 4);
+}
 
 export default MapContainer; 

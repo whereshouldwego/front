@@ -20,6 +20,7 @@ import MapOverlay from '../map/MapOverlay';
 import ChatSection from '../chat/ChatSection';
 import styles from './RoomPage.module.css';
 import type { MapCenter, MapEventHandlers, MapMarker, UserProfile } from '../../types';
+import { useWebSocket } from '../../stores/WebSocketContext';
 import { restaurantData } from '../../data/restaurantData';
 
 interface RoomData {
@@ -280,7 +281,7 @@ const RoomPage: React.FC = () => {
   }
 
   return (
-    <WebSocketProvider>
+    <WebSocketProvider roomCode={roomData.id}>
       <SidebarProvider>
         <ChatProvider>
           <div className={styles.container}>
@@ -319,6 +320,7 @@ const RoomPage: React.FC = () => {
 const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
   // useSidebar 훅 추가
   const { searchResults, recommendations, favorites, votes, performSearch } = useSidebar();
+  const { sendCursorPosition, otherUsersPositions } = useWebSocket();
   
   //  현위치 검색 버튼 표시 상태
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
@@ -458,6 +460,8 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
         markers={mapMarkers}
         eventHandlers={mapEventHandlers}
         onMapMoved={handleMapMoved}
+        onCursorMove={(pos) => sendCursorPosition(pos)}
+        cursorPositions={[...otherUsersPositions.entries()].map(([id, pos]) => ({ id, position: pos }))}
       />
       <MapOverlay
         users={users}
