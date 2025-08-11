@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  backend:
+    image: hdh026163635/backend:latest
+    container_name: backend
+    ports:
+      - "8000:8000"
+
+  front:
+    image: front_test         # 이미 빌드돼 있으면 이거
+    # 또는 build: .           # Dockerfile로 바로 빌드하려면 이거 사용
+    container_name: front
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
