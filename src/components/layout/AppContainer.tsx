@@ -244,8 +244,8 @@ const MainPage: React.FC = () => {
     <div className="relative">
       {/* 배경으로 서비스 화면 */}
       <div className="fixed inset-0">
-        {/* Demo page without a room: use a placeholder room code for socket grouping */}
-        <WebSocketProvider roomCode={"DEMO01"}>
+        {/* Demo page without a room: WebSocket disabled */}
+        <WebSocketProvider disabled>
           <SidebarProvider>
             <ChatProvider>
               <div className="h-screen relative">
@@ -255,7 +255,7 @@ const MainPage: React.FC = () => {
                     onExpandedChange={handleSidebarExpandedChange}
                   />
                   </div>
-                  <MainService roomId="DEMO01" />
+                  <MainService />
                 </div>
               </div>
             </ChatProvider>

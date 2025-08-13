@@ -42,13 +42,14 @@ export const useWebSocket = () => {
 
 interface WebSocketProviderProps {
   children: ReactNode;
-  roomCode: string;
+  roomCode?: string;
+  disabled?: boolean;
 }
 
-export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, roomCode }) => {
+export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, roomCode, disabled }) => {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [lastMessage, setLastMessage] = useState<MessageEvent | null>(null);
-  const [readyState, setReadyState] = useState<number>(WebSocket.CONNECTING);
+  const [readyState, setReadyState] = useState<number>(disabled || !roomCode ? WebSocket.CLOSED : WebSocket.CONNECTING);
   const [otherUsersPositions, setOtherUsersPositions] = useState<Map<string, CursorPositionLatLng>>(new Map());
   const pendingPositionsRef = useRef<Map<string, CursorPositionLatLng> | null>(null);
   const flushTimerRef = useRef<number | null>(null);
@@ -60,6 +61,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
   }, [userIdRaw]);
 
   useEffect(() => {
+    if (disabled || !roomCode) {
+      // Disable any active socket when switching to disabled/no-room mode
+      setSocket(null);
+      setLastMessage(null);
+      setReadyState(WebSocket.CLOSED);
+      return;
+    }
+
     const url = buildWebSocketUrl(roomCode);
     const ws = new WebSocket(url);
 
@@ -111,7 +120,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
     return () => {
       ws.close();
     };
-  }, [roomCode]);
+  }, [roomCode, disabled]);
 
   const sendMessage = (message: any) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
@@ -120,6 +129,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
   };
 
   const sendCursorPosition = (position: MapCenter) => {
+    if (disabled || !roomCode) return;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     const payload: BackendCursorMessage = {
       userId: parsedUserId,
