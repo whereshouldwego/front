@@ -56,21 +56,25 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
     <div className={styles.chatSection}>
       {/* 메시지 목록 */}
       <div className={styles.messagesContainer} ref={listRef}>
-        {messages.map((msg: ChatMessage) => {
+        {messages.map((msg: ChatMessage, idx: number) => {
           const isMine = String(msg.userId ?? '') === String(selfUserId);
           const createdAt = msg.createdAt || msg.timestamp || new Date().toISOString();
+          const key = msg.id ? `${msg.id}` : `${createdAt}|${idx}`;
           return (
           <div
-            key={msg.id}
+            key={key}
             className={`${styles.message} ${
               isMine ? styles.userMessage : styles.botMessage
             }`}
           >
             <div className={styles.messageContent}>
+              <div className={styles.messageMeta}>
+                <span className={styles.nick}>{msg.username || '익명'}</span>
+                <span className={styles.messageTime}>
+                  {formatTime(new Date(createdAt))}
+                </span>
+              </div>
               <p className={styles.messageText}>{msg.content}</p>
-              <span className={styles.messageTime}>
-                {formatTime(new Date(createdAt))}
-              </span>
             </div>
           </div>
           );

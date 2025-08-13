@@ -222,6 +222,7 @@ export interface ChatMessage {
   id: string;
   roomCode: string;
   userId: number;
+  username?: string;
   content: string;
   createdAt: string;     // ISO
   type?: 'user' | 'bot';
