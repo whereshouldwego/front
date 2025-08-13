@@ -71,10 +71,10 @@ export interface Restaurant {
     address?: string | null;
     roadAddress?: string | null;
   };
-  place_url?: string;
   phone?: string;
-  reviewCount?: number;
   summary?: string;
+  place_url?: string;
+  reviewCount?: number;
   // isFavorite?: boolean;
   // isCandidate?: boolean;
 }
@@ -90,18 +90,6 @@ export interface LocalDetail {
   lat?: number | null;           // 서버가 줄 수도/안 줄 수도 → optional
   lng?: number | null;
   aiSummary?: string | null;
-}
-
-// ✅ 즐겨찾기 API
-export interface FavoriteCreateBody {
-  placeId: number;
-  userId: number;
-}
-export interface FavoriteInfo {
-  favoriteId: number;
-  userId: number;
-  placeId: number;
-  createdAt?: string;
 }
 
 export function localDetailToRestaurant(d: LocalDetail): Restaurant {
@@ -126,14 +114,17 @@ export interface KakaoDocument {
   id: string;
   place_name: string;
   category_name: string;
-  distance?: string;       // meters string, x/y 있을 때만
+  category_group_code?: string | null;
+  category_group_name?: string | null;
+  distance?: string;
   phone?: string;
   address_name?: string;
   road_address_name?: string;
-  x: string;               // lng
-  y: string;               // lat
+  x: string;
+  y: string;    // lat
   place_url?: string;
 }
+
 export interface KakaoMeta {
   total_count: number;
   pageable_count: number;
@@ -223,6 +214,7 @@ export interface PlaceDetail {
   phone: string;
   aiSummary: string;
   categoryName: string;
+  place_url: string;
 }
 
 // Chat History
@@ -353,6 +345,46 @@ export interface LocationUpdateResponse {
   message?: string;
 }
 
+
+// 백엔드 ensure-batch 요청 1건 스키마 
+export interface PlaceEnsureBody {
+  address_name?: string | null;
+  category_group_code?: string | null;
+  category_group_name?: string | null;
+  category_name?: string | null;
+  distance?: string | null;
+  id: number;
+  phone?: string | null;
+  place_name: string;
+  place_url?: string | null;
+  road_address_name?: string | null;
+  x?: number | null;
+  y?: number | null;
+}
+// 백엔드 ensure-batch 응답 요약 
+export interface EnsureBatchResult {
+  created?: number;
+  updated?: number;
+  failed?: number;
+}
+
+export interface EnsureItem {
+  id: number;
+  name: string;
+  place_url: string | null;
+  x: number | null;
+  y: number | null;
+  address: string | null;
+  roadAddress: string | null;
+  phone: string | null;
+  categoryCode: string | null;
+  categoryName: string | null;
+}
+
+export interface EnsureBatchRequest {
+  items: EnsureItem[];
+}
+
 // API 성공 타입
 export interface ApiSuccess<T> {
   success: true;
@@ -373,43 +405,43 @@ export type ApiResponse<T> =
 // ===== 상태 관리 타입들 =====
 
 // 앱 전체 상태 타입
-export interface AppState {
-  user: {
-    id: string;
-    profile: UserProfile;
-    preferences: {
-      categories: string[];
-      priceRange: 'low' | 'medium' | 'high';
-      maxDistance: number;
-    };
-  };
-  search: {
-    query: string;
-    results: Restaurant[];
-    loading: boolean;
-    error?: string;
-  };
-  recommendations: {
-    items: Restaurant[];
-    loading: boolean;
-    error?: string;
-  };
-  favorites: {
-    items: Restaurant[];
-    loading: boolean;
-    error?: string;
-  };
-  votes: {
-    items: Restaurant[];
-    loading: boolean;
-    error?: string;
-  };
-  chat: {
-    messages: ChatMessage[];
-    loading: boolean;
-    error?: string;
-  };
-}
+// export interface AppState {
+//   user: {
+//     id: string;
+//     profile: UserProfile;
+//     preferences: {
+//       categories: string[];
+//       priceRange: 'low' | 'medium' | 'high';
+//       maxDistance: number;
+//     };
+//   };
+//   search: {
+//     query: string;
+//     results: Restaurant[];
+//     loading: boolean;
+//     error?: string;
+//   };
+//   recommendations: {
+//     items: Restaurant[];
+//     loading: boolean;
+//     error?: string;
+//   };
+//   favorites: {
+//     items: Restaurant[];
+//     loading: boolean;
+//     error?: string;
+//   };
+//   votes: {
+//     items: Restaurant[];
+//     loading: boolean;
+//     error?: string;
+//   };
+//   chat: {
+//     messages: ChatMessage[];
+//     loading: boolean;
+//     error?: string;
+//   };
+// }
 
 // ===== 유틸리티 타입들 =====
 

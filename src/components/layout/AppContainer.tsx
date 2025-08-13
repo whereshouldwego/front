@@ -177,7 +177,42 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
   );
 };
 
-// 404 페이지 (원본 유지)
+
+// 앱 컨테이너 컴포넌트
+const MainPage: React.FC = () => {
+  const handleSidebarExpandedChange = (expanded: boolean) => {
+    console.log('Sidebar expanded:', expanded);
+  };
+
+  return (
+    <div className="relative">
+      {/* 배경으로 서비스 화면 */}
+      <div className="fixed inset-0">
+        {/* Demo page without a room: WebSocket disabled */}
+        <WebSocketProvider disabled>
+          <SidebarProvider>
+            <ChatProvider>
+              <div className="h-screen relative">
+                <div className="absolute inset-0">
+                  <div id="sidebar-container">
+                  <Sidebar 
+                    onExpandedChange={handleSidebarExpandedChange}
+                  />
+                  </div>
+                  <MainService />
+                </div>
+              </div>
+            </ChatProvider>
+          </SidebarProvider>
+        </WebSocketProvider>
+      </div>
+      {/* 오버레이로 초기 화면 */}
+      <InitialScreen />
+    </div>
+  );
+};
+
+// 404 페이지 컴포넌트
 const NotFoundPage: React.FC = () => {
   return (
     <div className="flex items-center justify-center min-h-screen">
@@ -187,34 +222,6 @@ const NotFoundPage: React.FC = () => {
           메인으로 돌아가기
         </a>
       </div>
-    </div>
-  );
-};
-
-// 메인 페이지 (원본 유지)
-const MainPage: React.FC = () => {
-  const handleSidebarExpandedChange = (expanded: boolean) => {
-    console.log('Sidebar expanded:', expanded);
-  };
-  return (
-    <div className="relative">
-      <div className="fixed inset-0">
-        <WebSocketProvider roomCode={"DEMO01"}>
-          <SidebarProvider>
-            <ChatProvider>
-              <div className="h-screen relative">
-                <div className="absolute inset-0">
-                  <div id="sidebar-container">
-                    <Sidebar onExpandedChange={handleSidebarExpandedChange} />
-                  </div>
-                  <MainService roomId="DEMO01" />
-                </div>
-              </div>
-            </ChatProvider>
-          </SidebarProvider>
-        </WebSocketProvider>
-      </div>
-      <InitialScreen />
     </div>
   );
 };

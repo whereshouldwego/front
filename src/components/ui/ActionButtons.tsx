@@ -72,7 +72,7 @@ const ActionButtons: React.FC<Props> = ({
           }}
           title={isVoted(placeId) ? '투표취소' : '투표하기'}
         >
-          {isVoted(placeId) ? '✅' : '☑️'}
+          {isVoted(placeId) ? '👍🏿' : '👍🏻'}
         </button>
       )}
       
@@ -86,7 +86,7 @@ const ActionButtons: React.FC<Props> = ({
           }}
           title={isCandidate(placeId) ? '후보제거' : '후보추가'}
         >
-          {isCandidate(placeId) ? '📤' : '📥'}
+          {isCandidate(placeId) ? '✅' : '☑️'}
         </button>
       )}
     </div>

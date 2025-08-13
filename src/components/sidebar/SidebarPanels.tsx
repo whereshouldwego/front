@@ -22,7 +22,7 @@ interface SidebarPanelsProps {
 const SidebarPanels: React.FC<SidebarPanelsProps> = ({ activePanel }) => {
   // TODO: 실제 앱에선 상위에서 내려받아 사용
   const userId = Number(localStorage.getItem('userId') || 0);
-  const roomCode = localStorage.getItem('roomCode') || 'DEMO01';
+  const roomCode = localStorage.getItem('roomCode') || undefined;
   const center = undefined;
 
   const renderActivePanel = () => {

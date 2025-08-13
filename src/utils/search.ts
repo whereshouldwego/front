@@ -145,3 +145,13 @@ export class SearchHistory {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filteredHistory));
   }
 } 
+
+// 공통 유틸
+export const emptyToNull = (v?: string | null) =>
+  v === undefined || v === null || v === '' ? null : v;
+
+export const toNumOrNull = (v?: number | string | null) => {
+  if (v === undefined || v === null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
