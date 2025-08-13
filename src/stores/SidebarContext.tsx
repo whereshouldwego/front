@@ -40,6 +40,10 @@ interface SidebarContextType {
   mapCenter: MapCenter | null;
   setMapCenter: (c: MapCenter) => void;
 
+  // 선택된 레스토랑 (마커 확대용)
+  selectedRestaurantId: string | null; // placeId를 문자열로 저장
+  setSelectedRestaurantId: (id: string | null) => void;
+
   // 검색
   performSearch: (params: { query: string; center?: MapCenter; category?: string; location?: string; limit?: number }) => Promise<void>;
   loadMore: () => Promise<void>;
@@ -80,6 +84,9 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     _setMapCenter(c);
   }, []);
 
+  // 선택 상태
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
+
   // 사이드바 컨트롤
   const setActivePanel = useCallback((panel: SidebarButtonType) => setActivePanelState(panel), []);
   const toggleSidebar = useCallback(() => setIsOpen(v => !v), []);
@@ -109,6 +116,9 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setHasMore(data.length >= pageSize);
       setLastQuery({ query: params.query.trim(), category: params.category });
       setActivePanel('search');
+
+      // 새 검색 시 선택 초기화 
+      setSelectedRestaurantId(null);
     } catch (e) {
       console.error('[performSearch] 실패:', e);
       setSearchResults([]);
@@ -178,6 +188,10 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     mapCenter,
     setMapCenter,
+
+    // 선택 상태 제공
+    selectedRestaurantId,
+    setSelectedRestaurantId,
 
     performSearch,
     loadMore,

@@ -31,15 +31,45 @@ const InitialScreen: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  // [유틸] 응답 헤더에서 토큰 추출 (Authorization: Bearer xxx 또는 X-Access-Token 등)
+  const extractAccessToken = (headers: Headers): string | null => {
+    const auth = headers.get('Authorization') || headers.get('authorization');
+    if (auth && auth.toLowerCase().startsWith('bearer ')) {
+      return auth.slice(7).trim();
+    }
+    const custom =
+      headers.get('X-Access-Token') ||
+      headers.get('x-access-token') ||
+      headers.get('Access-Token') ||
+      headers.get('access-token');
+    if (custom) return custom.trim();
+    return null;
+  };
+
+  // [유틸] 안전 JSON 파서
+  async function parseJsonSafe<T>(res: Response, context: string): Promise<T> {
+    if (res.status === 204) {
+      throw new Error(`${context}: 서버에서 내용이 없는 응답(204)을 반환했습니다.`);
+    }
+    const text = await res.text();
+    if (!text) {
+      throw new Error(`${context}: 서버가 빈 응답을 반환했습니다.`);
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch (_) {
+      console.error(`[parseJsonSafe] ${context} 응답 원문:`, text);
+      throw new Error(`${context}: 응답 형식(JSON) 오류`);
+    }
+  }
+
   // 카카오 로그인 성공 후 콜백 처리
   useEffect(() => {
     const handleKakaoCallback = async () => {
-      // URL에서 인증 코드 확인 (카카오에서 리다이렉트된 경우)
       const code = searchParams.get('code');
       const error = searchParams.get('error');
       
       if (code) {
-        // 카카오 로그인 성공 - 백엔드에서 토큰 교환
         try {
           setIsLoading(true);
           
@@ -52,7 +82,7 @@ const InitialScreen: React.FC = () => {
             throw new Error('카카오 로그인 처리에 실패했습니다.');
           }
 
-          const kakaoData: KakaoLoginResponse = await response.json();
+          const kakaoData = await parseJsonSafe<KakaoLoginResponse>(response, '카카오 로그인 처리');
           
           // 토큰과 사용자 정보 저장
           localStorage.setItem('accessToken', kakaoData.access_token);
@@ -68,7 +98,6 @@ const InitialScreen: React.FC = () => {
           setIsLoading(false);
         }
       } else if (error) {
-        // 카카오 로그인 실패
         console.error('카카오 로그인 실패:', error);
         alert('카카오 로그인에 실패했습니다. 다시 시도해주세요.');
         setIsLoading(false);
@@ -81,8 +110,6 @@ const InitialScreen: React.FC = () => {
   // 카카오 로그인 시작
   const handleKakaoCreateRoom = () => {
     setIsLoading(true);
-    
-    // 백엔드 카카오 OAuth 엔드포인트로 리다이렉트
     const kakaoLoginUrl = `${import.meta.env.VITE_API_URL}/oauth2/authorization/kakao`;
     window.location.href = kakaoLoginUrl;
   };
@@ -90,7 +117,6 @@ const InitialScreen: React.FC = () => {
   // 카카오 로그인 성공 후 방 생성 - 에러 처리 개선
   const handleKakaoLoginSuccess = async (kakaoData: KakaoLoginResponse) => {
     try {
-      // 서버에 로그인된 사용자로 방 생성 요청
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms`, {
         method: 'POST',
         headers: { 
@@ -104,126 +130,213 @@ const InitialScreen: React.FC = () => {
         })
       });
 
-      // 응답 상태 확인 개선
       if (!response.ok) {
         const errorText = await response.text();
         console.error('서버 응답 에러:', response.status, errorText);
         throw new Error(`서버 오류 (${response.status}): 방 생성에 실패했습니다.`);
       }
 
-      // 백엔드 응답 파싱
-      const data: RoomCreateResponse = await response.json();
-      console.log('백엔드 응답 (카카오):', data);
-
-      // roomCode 추출 (백엔드 응답 우선)
+      const data = await parseJsonSafe<RoomCreateResponse>(response, '방 생성(카카오)');
       const roomCode = data.roomCode;
-      
       if (!roomCode) {
         throw new Error('서버에서 유효한 방 코드를 받지 못했습니다.');
       }
-      
-      console.log('카카오 로그인 사용자 방 생성 성공:', {
-        roomCode: roomCode,
-        roomUrl: data.roomUrl,
-        nickname: kakaoData.nickname,
-        userId: kakaoData.user_id
-      });
-      
-      // 방 URL로 리다이렉트
+
+      // roomCode 저장 (다른 컴포넌트에서 활용 가능)
+      localStorage.setItem('roomCode', roomCode);
+
       navigate(`/rooms/${roomCode}`);
       
     } catch (error) {
       console.error('방 생성 실패:', error);
-      
-      // 사용자 친화적 에러 처리
       if (error instanceof Error) {
         if (error.message.includes('fetch')) {
           alert('네트워크 연결을 확인해주세요. 인터넷 연결 상태를 점검하고 다시 시도해주세요.');
         } else if (error.message.includes('서버 오류')) {
           alert('서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        } else if (error.message.includes('응답 형식') || error.message.includes('빈 응답')) {
+          alert('방 생성 응답을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.');
         } else {
           alert('방 생성에 실패했습니다. 카카오 로그인을 다시 시도해주세요.');
         }
       } else {
         alert('알 수 없는 오류가 발생했습니다. 다시 시도해주세요.');
       }
-      
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 비회원으로 방 생성 - 2단계 플로우
+  // 비회원으로 방 생성 - 2단계/3단계 변경 반영 + 단계별 콘솔 로깅
   const handleGuestCreateRoom = async () => {
     setIsLoading(true);
-    
+
+    // 단계별 성공 여부 플래그
+    let step1Ok = false; // 방 생성
+    let step2Ok = false; // 게스트 생성/토큰 확보
+    let step3Ok = false; // 방 입장
+
     try {
-      // === 1단계: 방 생성 요청 ===
+      // === [STEP1] 방 생성 요청 ===
       const roomResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms`, {
         method: 'POST'
       });
 
       if (!roomResponse.ok) {
         const errorText = await roomResponse.text();
-        console.error('방 생성 실패:', roomResponse.status, errorText);
+        console.error('❌ [STEP1] 방 생성 실패:', roomResponse.status, errorText);
         throw new Error(`서버 오류 (${roomResponse.status}): 방 생성에 실패했습니다.`);
       }
 
-      const roomData: RoomCreateResponse = await roomResponse.json();
-      console.log('1단계 - 방 생성 성공:', roomData);
-      
+      const roomData = await parseJsonSafe<RoomCreateResponse>(roomResponse, '방 생성(비회원)');
       const roomCode = roomData.roomCode;
       if (!roomCode) {
+        console.error('❌ [STEP1] 유효한 roomCode 누락:', roomData);
         throw new Error('서버에서 유효한 방 코드를 받지 못했습니다.');
       }
 
-      // === 2단계: 비회원 사용자 정보 생성 ===
+      // roomCode 저장 (참조 용)
+      localStorage.setItem('roomCode', roomCode);
+      step1Ok = true;
+      console.info('✅ [STEP1] 방 생성 성공:', { roomCode, roomUrl: roomData.roomUrl });
+
+      // === [STEP2] 비회원 사용자 생성 (헤더 토큰 추출) ===
       const userResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/guest?roomCode=${roomCode}`, {
         method: 'POST',
-        credentials: 'include',
+        credentials: 'include', // 서버가 세션/쿠키를 병행한다면 유지
       });
 
       if (!userResponse.ok) {
         const errorText = await userResponse.text();
-        console.error('사용자 생성 실패:', userResponse.status, errorText);
+        console.error('❌ [STEP2] 게스트 생성 실패:', userResponse.status, errorText);
         throw new Error(`서버 오류 (${userResponse.status}): 사용자 생성에 실패했습니다.`);
       }
 
-      const userData = await userResponse.json();
-      console.log('2단계 - 사용자 생성 성공:', userData);
+      const headerToken = extractAccessToken(userResponse.headers);
+      if (!headerToken) {
+        console.warn('[STEP2] 응답 헤더에 토큰이 없습니다. (바디에서 보조 파싱 시도)');
+      }
 
-      // 사용자 정보 저장
-      localStorage.setItem('accessToken', userData.accessToken);
-      localStorage.setItem('userNickname', userData.nickname);
-      localStorage.setItem('userId', userData.userId);
-      localStorage.setItem('userType', 'guest'); // 비회원 구분
+      // 바디 파싱(선택): userId/nickname 확보용
+      let userId: string | number | undefined;
+      let nickname: string | undefined;
+      try {
+        const text = await userResponse.clone().text();
+        if (text) {
+          const userData = JSON.parse(text) as { accessToken?: string; userId?: string | number; nickname?: string };
+          userId = userData.userId;
+          nickname = userData.nickname;
+          if (!headerToken && userData.accessToken) {
+            console.log('[STEP2] 바디 accessToken 사용 (헤더 미제공)');
+            localStorage.setItem('accessToken', userData.accessToken);
+          }
+        }
+      } catch {
+        // 바디가 없거나 JSON이 아니어도 흐름 유지 (헤더 토큰만으로 진행)
+      }
 
-      console.log('비회원 방 생성 완료:', {
-        roomCode: roomCode,
-        roomUrl: roomData.roomUrl,
-        userId: userData.user_id,
-        nickname: userData.nickname
+      const finalToken = headerToken || localStorage.getItem('accessToken') || '';
+      if (!finalToken) {
+        console.error('❌ [STEP2] 게스트 토큰 부재');
+        throw new Error('게스트 토큰을 확인할 수 없습니다.');
+      }
+
+      // 로컬 저장
+      localStorage.setItem('accessToken', finalToken);
+      if (userId !== undefined) localStorage.setItem('userId', String(userId));
+      if (nickname !== undefined) localStorage.setItem('userNickname', nickname);
+      localStorage.setItem('userType', 'guest');
+
+      step2Ok = true;
+      console.info('✅ [STEP2] 게스트 생성/토큰 확보 성공:', {
+        hasToken: !!finalToken,
+        userId,
+        nickname
       });
 
-      // === 3단계: 방 입장 ===
+      // === [STEP3] 방 입장 ===
+      // ▶ 약속방 참여 API 사양 반영:
+      //    - 헤더: Authorization: Bearer {access token}
+      //    - 응답 바디: { userId, nickname, color }
+      const roomEnterUrl = `${import.meta.env.VITE_API_URL}/api/rooms/${roomCode}`;
+
+      // [FIX-STEP3] 기본은 POST로 시도. 405면 GET 폴백은 유지하되, 성공 시 응답 바디를 JSON으로 파싱하여 저장.
+      let enterMethod: 'POST' | 'GET' = 'POST';
+      let enterRes = await fetch(roomEnterUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${finalToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (enterRes.status === 405) {
+        console.warn('[STEP3] POST 405 → GET 폴백 시도');
+        enterMethod = 'GET';
+        enterRes = await fetch(roomEnterUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${finalToken}`
+          }
+        });
+      }
+
+      // 이미 참가(409) 등은 성공으로 간주
+      if (!enterRes.ok && enterRes.status !== 409) {
+        const t = await enterRes.text();
+        console.error(`❌ [STEP3] 방 입장 실패(${enterMethod}):`, enterRes.status, t);
+        throw new Error(`방 입장에 실패했습니다. (${enterRes.status})`);
+      }
+
+      // [FIX-STEP3] ✅ 참여 성공 시 응답 바디(JSON)에서 userId, nickname, color를 저장
+      try {
+        if (enterRes.ok) {
+          const joinInfo = await parseJsonSafe<{ userId: number | string; nickname: string; color: string }>(
+            enterRes,
+            '방 입장 응답 파싱'
+          );
+          // 닉네임/색상 최신값으로 덮어쓰기
+          if (joinInfo?.userId !== undefined) localStorage.setItem('userId', String(joinInfo.userId));
+          if (joinInfo?.nickname) localStorage.setItem('userNickname', joinInfo.nickname);
+          if (joinInfo?.color) localStorage.setItem('userColor', joinInfo.color); // ← 새로 저장
+          console.info('✅ [STEP3] 참여 응답 수신:', joinInfo);
+        } else if (enterRes.status === 409) {
+          console.info('ℹ️ [STEP3] 이미 참여 중(409) → 바디 없음 가능');
+        }
+      } catch (e) {
+        // 응답 바디가 비어있거나 JSON이 아닐 수도 있으므로 흐름 유지
+        console.warn('⚠️ [STEP3] 참여 응답 파싱 스킵/실패:', e);
+      }
+
+      step3Ok = true;
+      console.info(`✅ [STEP3] 방 입장 성공 (${enterMethod})`, { status: enterRes.status });
+
+      // 최종 이동
       navigate(`/rooms/${roomCode}`);
       
     } catch (error) {
-      console.error('방 생성 실패:', error);
-      
+      console.error('방 입장 플로우 실패:', error);
       if (error instanceof Error) {
         if (error.message.includes('fetch')) {
           alert('네트워크 연결을 확인해주세요. 인터넷 연결 상태를 점검하고 다시 시도해주세요.');
         } else if (error.message.includes('서버 오류')) {
           alert('서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        } else if (error.message.includes('응답 형식') || error.message.includes('빈 응답')) {
+          alert('사용자 생성 응답을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.');
         } else {
-          alert('방 생성에 실패했습니다. 다시 시도해주세요.');
+          alert(error.message || '방 생성/입장에 실패했습니다. 다시 시도해주세요.');
         }
       } else {
         alert('알 수 없는 오류가 발생했습니다. 다시 시도해주세요.');
       }
       
     } finally {
+      // 단계 요약 로그
+      console.info('[SUMMARY] 비회원 방 생성/입장 결과:', {
+        step1_createRoom: step1Ok,
+        step2_guestAndToken: step2Ok,
+        step3_enterRoom: step3Ok
+      });
       setIsLoading(false);
     }
   };

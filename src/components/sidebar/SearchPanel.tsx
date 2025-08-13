@@ -32,6 +32,8 @@ const SearchPanel: React.FC<Props> = ({ userId, center }) => {
     performSearch,
     loadMore,
     mapCenter,
+    // 선택 상태 setter 사용
+    setSelectedRestaurantId,
   } = useSidebar();
 
   const [inputValue, setInputValue] = useState('');
@@ -141,7 +143,12 @@ const SearchPanel: React.FC<Props> = ({ userId, center }) => {
 
             <div className={styles.restaurantCards}>
               {searchResults.map((r) => (
-                <div key={r.placeId} className={styles.searchItem}>
+                // 카드 클릭 시 선택된 placeId를 전역 상태로 저장
+                <div
+                  key={r.placeId}
+                  className={styles.searchItem}
+                  onClick={() => setSelectedRestaurantId(String(r.placeId))}
+                >
                   <RestaurantCard
                     data={r}
                     className={styles.restaurantCard}
