@@ -79,12 +79,17 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
     const cached = loadCache(roomCode);
     if (cached.length > 0) setMessages(cached);
 
+    const accessToken = localStorage.getItem('accessToken') || '';
     const client = new Client({
       // SockJS를 사용한 연결
       webSocketFactory: () => new SockJS(endpoint),
       reconnectDelay: 1500,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
+      // STOMP CONNECT 시 Authorization 헤더로 토큰 전달
+      connectHeaders: accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : {},
       onStompError: (frame) => {
         console.error('[STOMP ERROR]', frame.headers['message'], frame.body);
         if (isActive) setError('채팅 서버 오류가 발생했습니다.');

@@ -7,7 +7,9 @@ function buildWebSocketUrl(roomCode: string): string {
   const base = (import.meta as any).env.VITE_WS_URL || (import.meta as any).env.VITE_API_URL || '';
   const normalized = String(base).replace(/\/$/, '');
   const wsBase = normalized.replace(/^http/i, 'ws');
-  return `${wsBase}/ws/cursor?roomCode=${encodeURIComponent(roomCode)}`;
+  const token = localStorage.getItem('accessToken') || '';
+  const tokenParam = token ? `&token=Bearer%20${encodeURIComponent(token)}` : '';
+  return `${wsBase}/ws/cursor?roomCode=${encodeURIComponent(roomCode)}${tokenParam}`;
 }
 
 interface CursorPositionLatLng {
