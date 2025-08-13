@@ -155,12 +155,20 @@ const RoomPage: React.FC = () => {
       };
 
       /* 실행 흐름 */
+      const hasLocalForThisRoom = !!token && !!uid && bound === id; // <-- [CHANGE] 추가
+
       if (firstEntryInThisTab) {
-        await ensureGuestAuth(true);   // 새 탭 → 항상 새 게스트 발급
-        await joinRoom();
-        sessionStorage.setItem(joinedKey, '1'); // 이 탭에서는 중복 발급 방지
+        if (hasLocalForThisRoom) {
+          // <-- [CHANGE] 기존 정보로 바로 참여
+          await joinRoom();
+        } else {
+          // 기존처럼 새 게스트 발급
+          await ensureGuestAuth(true);
+          await joinRoom();
+        }
+        sessionStorage.setItem(joinedKey, '1');
       } else {
-        // 같은 탭 재진입: 토큰 없거나 다른 방에서 발급된 토큰이면 재발급
+        // 같은 탭 재진입: 기존 로직 유지
         if (!token || !uid || bound !== id) {
           await ensureGuestAuth(false);
           await joinRoom();
