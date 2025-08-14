@@ -76,6 +76,7 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
                         showCandidateButton
                         showVoteButton
                         onStateChange={handleStateChange}
+                        isInCandidatePanel={true}
                       />
                     }
                   />
