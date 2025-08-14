@@ -15,7 +15,7 @@ import ActionButtons from '../ui/ActionButtons';
 import { useSidebar } from '../../stores/SidebarContext';
 import type { MapCenter } from '../../types';
 
-const DEFAULT_CENTER: MapCenter = { lat: 37.5002, lng: 127.0364 };
+const DEFAULT_CENTER: MapCenter = { lat: 36.35369004484255, lng: 127.34132312554642 };
 
 interface Props {
   userId?: number;

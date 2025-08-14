@@ -35,10 +35,10 @@ interface MapContainerProps {
   selectedMarkerId?: string;
 }
 
-// 기본 지도 설정 (역삼역 중심)
+// 기본 지도 설정 (유성온천역 중심)
 const defaultCenter = {
-  lat: 37.5002,
-  lng: 127.0364
+  lat: 36.35369004484255,
+  lng: 127.34132312554642
 };
 
 const MapContainer: React.FC<MapContainerProps> = ({
