@@ -4,10 +4,9 @@
  * 방 생성 선택 화면
  *
  * 기능:
- * - 카카오 로그인 후 방 생성
- * - 비회원으로 방 생성
- * - 방 생성 시 고유 URL 생성
- * - 백엔드 응답 처리 및 에러 핸들링
+ * - [변경] 버튼 클릭 시 먼저 방 생성 -> roomCode/roomUrl을 스토리지에 저장 후 카카오 로그인으로 이동
+ * - [변경] 카카오 로그인 콜백에서 토큰 확보 후, 저장된 roomCode로 방참여(fetch) 수행 및 /rooms/{roomCode} 로 이동
+ * - 비회원으로 방 생성 (기존 로직 유지)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -15,9 +14,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import styles from './InitialScreen.module.css';
 
 interface KakaoLoginResponse {
-  access_token: string;
-  nickname: string;
-  user_id: string;
+  access_token?: string;
+  nickname?: string;
+  user_id?: string;
 }
 
 interface RoomCreateResponse {
@@ -25,6 +24,12 @@ interface RoomCreateResponse {
   roomUrl: string;  // 백엔드에서 받을 방 URL
   roomId?: string;
 }
+
+// ★ [추가] 방 생성 후 콜백까지 기억할 키들
+const STORAGE_KEYS = {
+  pendingRoomCode: 'pendingRoomCode',
+  pendingRoomUrl: 'pendingRoomUrl',
+};
 
 const InitialScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -58,84 +63,154 @@ const InitialScreen: React.FC = () => {
     }
   }
 
+  // ★ [추가] 카카오 로그인 완료 후: 저장된 roomCode로 방참여
+  const joinSavedRoomWithToken = async (accessToken: string) => {
+    // 1) 방코드 조회: pendingRoomCode(우선) -> roomCode(백업)
+    const roomCode =
+      localStorage.getItem(STORAGE_KEYS.pendingRoomCode) ||
+      localStorage.getItem('roomCode') ||
+      '';
+
+    if (!roomCode) {
+      throw new Error('방 코드가 없습니다. (로그인 전에 방을 생성해주세요)');
+    }
+
+    // 2) 방참여 요청
+    const joinRes = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${roomCode}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!joinRes.ok && joinRes.status !== 409) {
+      const t = await joinRes.text().catch(() => '');
+      throw new Error(`방 입장 실패 (${joinRes.status}) ${t}`);
+    }
+
+    // 3) (선택) 응답 바디에 userId/nickname/color가 있으면 저장
+    try {
+      const text = await joinRes.clone().text();
+      if (text) {
+        const joinInfo = JSON.parse(text) as { userId?: number | string; nickname?: string; color?: string };
+        if (joinInfo?.userId != null) localStorage.setItem('userId', String(joinInfo.userId));
+        if (joinInfo?.nickname) localStorage.setItem('userNickname', joinInfo.nickname);
+        if (joinInfo?.color) localStorage.setItem('userColor', joinInfo.color);
+      }
+    } catch { /* 바디가 없거나 JSON이 아닐 수 있음 */ }
+
+    // 4) 이 탭에서 이미 참여 완료 표시(중복 발급 방지 용도)
+    sessionStorage.setItem(`joined::${roomCode}`, '1');
+
+    // 5) pending 키 정리
+    localStorage.removeItem(STORAGE_KEYS.pendingRoomCode);
+    localStorage.removeItem(STORAGE_KEYS.pendingRoomUrl);
+
+    // 6) 방 화면으로 이동
+    navigate(`/rooms/${roomCode}`);
+  };
+
   // 카카오 로그인 콜백 처리
   useEffect(() => {
     const handleKakaoCallback = async () => {
       const code = searchParams.get('code');
       const error = searchParams.get('error');
+
+      // 콜백 쿼리에 code가 있을 때만 처리
       if (code) {
         try {
           setIsLoading(true);
-          const response = await fetch(`${import.meta.env.VITE_API_URL}/oauth2/authorization/kakao?code=${code}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-          });
+          // ✅ 서버가 이 요청을 통해 액세스 토큰을 헤더/바디에 내려주는 것으로 가정
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/oauth2/authorization/kakao?code=${code}`,
+            {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
           if (!response.ok) throw new Error('카카오 로그인 처리 실패');
 
-          const kakaoData = await parseJsonSafe<KakaoLoginResponse>(response, '카카오 로그인 처리');
-          localStorage.setItem('accessToken', kakaoData.access_token);
-          localStorage.setItem('userNickname', kakaoData.nickname);
-          localStorage.setItem('userId', kakaoData.user_id);
+          // 1) 헤더 우선으로 액세스 토큰 추출
+          const headerToken = extractAccessToken(response.headers);
 
-          await handleKakaoLoginSuccess(kakaoData);
+          // 2) (백업) 바디에서도 토큰/유저정보 시도
+          let bodyToken = '';
+          let nickname = '';
+          let userId = '';
+          try {
+            const kakaoData = await parseJsonSafe<KakaoLoginResponse>(response.clone(), '카카오 로그인 처리'); // ★ clone() 사용
+            bodyToken = kakaoData.access_token || '';
+            nickname = kakaoData.nickname || '';
+            userId = kakaoData.user_id || '';
+          } catch {
+            // 바디가 없거나 JSON이 아닐 수 있으므로 무시
+          }
+
+          const finalToken = headerToken || bodyToken;
+          if (!finalToken) throw new Error('액세스 토큰을 확인할 수 없습니다.');
+
+          // 3) 로컬 저장
+          localStorage.setItem('accessToken', finalToken);
+          if (nickname) localStorage.setItem('userNickname', nickname);
+          if (userId) localStorage.setItem('userId', userId);
+          localStorage.setItem('userType', 'kakao');
+
+          // 4) ★ 변경: 로그인 직후 "저장해둔 방"으로 참가 요청 후 이동
+          await joinSavedRoomWithToken(finalToken);
         } catch (e) {
-          console.error('카카오 로그인 실패:', e);
-          alert('카카오 로그인에 실패했습니다. 다시 시도해주세요.');
+          console.error('카카오 로그인 콜백 처리 실패:', e);
+          alert('로그인 후 방 입장 과정에서 문제가 발생했습니다. 다시 시도해주세요.');
           setIsLoading(false);
         }
-      } else if (error) {
+        return; // 콜백 처리 분기 종료
+      }
+
+      if (error) {
         console.error('카카오 로그인 실패:', error);
         alert('카카오 로그인에 실패했습니다. 다시 시도해주세요.');
         setIsLoading(false);
       }
     };
+
     handleKakaoCallback();
   }, [searchParams]);
 
-  // 카카오 로그인 시작
-  const handleKakaoCreateRoom = () => {
-    setIsLoading(true);
-    const kakaoLoginUrl = `${import.meta.env.VITE_API_URL}/oauth2/authorization/kakao`;
-    window.location.href = kakaoLoginUrl;
-  };
-
-  // 카카오 로그인 후 방 생성
-  const handleKakaoLoginSuccess = async (kakaoData: KakaoLoginResponse) => {
+  // ★ [변경] 카카오 로그인 시작: 먼저 방 생성 -> roomCode 저장 -> 카카오 로그인으로 이동
+  const handleKakaoCreateRoom = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms`, {
+      setIsLoading(true);
+
+      // 1) 방 생성 (비로그인 허용 가정)
+      const createRes = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${kakaoData.access_token}`
-        },
-        body: JSON.stringify({ 
-          creatorType: 'kakao',
-          creatorId: kakaoData.user_id,
-          creatorName: kakaoData.nickname
-        })
+        headers: { 'Content-Type': 'application/json' },
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('서버 응답 에러:', response.status, errorText);
-        throw new Error(`서버 오류 (${response.status}): 방 생성 실패`);
+      if (!createRes.ok) {
+        const t = await createRes.text().catch(() => '');
+        throw new Error(`서버 오류 (${createRes.status}): 방 생성 실패 ${t}`);
       }
-
-      const data = await parseJsonSafe<RoomCreateResponse>(response, '방 생성(카카오)');
+      const data = await parseJsonSafe<RoomCreateResponse>(createRes, '방 생성(카카오 사전 생성)');
       const roomCode = data.roomCode;
       if (!roomCode) throw new Error('유효한 방 코드를 받지 못했습니다.');
 
-      localStorage.setItem('roomCode', roomCode);
-      navigate(`/rooms/${roomCode}`);
+      // 2) 생성된 방을 localStorage에 저장(콜백에서 사용)
+      localStorage.setItem('roomCode', roomCode); // 기존 키 유지
+      localStorage.setItem(STORAGE_KEYS.pendingRoomCode, roomCode);     // ★ 콜백용
+      localStorage.setItem(STORAGE_KEYS.pendingRoomUrl, data.roomUrl);  // ★ (참고용)
+
+      // 3) 카카오 로그인으로 이동
+      const kakaoLoginUrl = `${import.meta.env.VITE_API_URL}/oauth2/authorization/kakao`;
+      window.location.href = kakaoLoginUrl;
     } catch (e: any) {
-      console.error('방 생성 실패:', e);
+      console.error('카카오 로그인 시작(사전 방 생성) 실패:', e);
       alert(e?.message || '방 생성에 실패했습니다.');
-    } finally {
       setIsLoading(false);
     }
   };
 
-  // 비회원으로 방 생성 (2·3단계 중요 변경 포함)
+  // 비회원으로 방 생성 (기존 기능 유지 — 변경 없음)
   const handleGuestCreateRoom = async () => {
     setIsLoading(true);
 
@@ -196,9 +271,9 @@ const InitialScreen: React.FC = () => {
       if (nickname !== undefined) localStorage.setItem('userNickname', nickname);
       localStorage.setItem('userType', 'guest');
 
-      /* ★★★ 중요: 이 토큰이 어느 방에서 발급됐는지 표시하여
+      /* 중요: 이 토큰이 어느 방에서 발급됐는지 표시하여
          RoomPage가 중복 발급을 건너뛰게 함 */
-      localStorage.setItem('guestBoundRoomCode', roomCode); // <-- [ADD]
+      localStorage.setItem('guestBoundRoomCode', roomCode);
 
       step2Ok = true;
       console.info('✅ [STEP2] 게스트 생성/토큰 확보 성공:', { hasToken: !!finalToken, userId, nickname });
@@ -229,9 +304,8 @@ const InitialScreen: React.FC = () => {
         }
       } catch {/* 바디 없을 수 있음 */}
 
-      /* ★★★ 중요: 이 탭에서는 이미 참여를 끝냈음을 표시
-         RoomPage 첫 진입 시 "새 게스트 강제 발급"을 막아 줌 */
-      sessionStorage.setItem(`joined::${roomCode}`, '1'); // <-- [ADD]
+      // 이 탭에서는 이미 참여를 끝냈음을 표시
+      sessionStorage.setItem(`joined::${roomCode}`, '1');
 
       step3Ok = true;
       console.info('✅ [STEP3] 방 입장 성공');
