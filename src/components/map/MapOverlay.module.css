@@ -106,6 +106,18 @@
   transform: scale(1.08);
 }
 
+/* 현재 사용자 프로필 스타일 */
+.currentUserAvatar {
+  cursor: pointer;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.5), 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.currentUserAvatar:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
 .userIcon {
   width: 13px;
   height: 13px;
@@ -123,6 +135,34 @@
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.1;
+}
+
+/* 현재 사용자 닉네임 스타일 */
+.currentUserNickname {
+  cursor: pointer;
+  color: #3b82f6 !important;
+  font-weight: 700;
+  position: relative;
+}
+
+.currentUserNickname:hover {
+  color: #2563eb !important;
+}
+
+.currentUserNickname::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 1px;
+  background-color: #3b82f6;
+  transition: width 0.2s ease;
+}
+
+.currentUserNickname:hover::after {
+  width: 80%;
 }
 
 .userCount {
