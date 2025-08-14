@@ -25,15 +25,6 @@ interface BackendCursorMessage {
   username?: string;
 }
 
-interface PresenceMessage {
-  type: 'join' | 'leave' | 'cursor';
-  userId: number | string;
-  roomCode: string;
-  username?: string;
-  lat?: number;
-  lng?: number;
-}
-
 interface WebSocketContextType {
   sendMessage: (message: any) => void;
   sendCursorPosition: (position: MapCenter) => void;
@@ -91,11 +82,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
       setReadyState(ws.readyState);
       // 접속 시 본인을 연결된 사용자 목록에 추가
       const selfId = String(parsedUserId);
+      const nickname = localStorage.getItem('userNickname') || '';
+      
       if (selfId) {
         setAllConnectedUsers(prev => new Set([...prev, selfId]));
         setUserNameById(prev => {
           const next = new Map(prev);
-          const nickname = localStorage.getItem('userNickname') || '';
           if (nickname) next.set(selfId, nickname);
           return next;
         });
