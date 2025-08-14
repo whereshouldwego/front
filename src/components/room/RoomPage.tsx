@@ -205,6 +205,20 @@ const RoomPage: React.FC = () => {
     }
   };
 
+  // 바로 링크 복사 - 간소화된 공유 기능
+  const handleShareRoom = async () => {
+    if (!roomData) return;
+    
+    try {
+      // URL 변경: /room/ -> /rooms/
+      const roomLink = `${window.location.origin}/rooms/${roomData.id}`;
+      await navigator.clipboard.writeText(roomLink);
+      alert('방 링크가 복사되었습니다! 친구들에게 공유해보세요.');
+    } catch (error) {
+      alert('링크 복사에 실패했습니다.');
+    }
+  };
+
   /* 로딩 화면 */
   if (loading) {
     return (
@@ -272,6 +286,18 @@ const RoomPage: React.FC = () => {
                   <RoomMainContent roomId={roomData.id} />
                 </div>
               </div>
+            </div>
+            {/* 지도 상단에 플로팅하는 공유 버튼 */}
+            <div className={styles.floatingButtonContainer}>
+              <button
+                onClick={handleShareRoom}
+                className={styles.shareButton}
+              >
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                방 공유하기
+              </button>
             </div>
           </div>
         </ChatProvider>
