@@ -12,14 +12,7 @@ export interface SidebarButtonConfig {
   position: number; // 슬라이더 위치 (px)
 }
 
-// 사용자 프로필 인터페이스
-export interface UserProfile {
-  id: string;
-  name: string;
-  location: string;
-  avatarColor: string;
-  isCurrentUser?: boolean;
-}
+// 사용자 프로필 인터페이스 제거됨
 
 // 지도 오버레이 설정
 export interface MapOverlayConfig {
@@ -29,14 +22,11 @@ export interface MapOverlayConfig {
   showCurrentLocationButton?: boolean;
 }
 
-// MapOverlay props 인터페이스에 추가
+// MapOverlay props 인터페이스 단순화
 export interface MapOverlayProps {
-  users?: UserProfile[];
   config?: MapOverlayConfig;
   onDepartureSubmit?: (location: string) => void;
   onDepartureCancel?: () => void;
-  onUserProfileClick?: (userId: string) => void;
-  // ✅ 새로 추가
   onCurrentLocationSearch?: (center: MapCenter) => void;
   showCurrentLocationButton?: boolean;
   className?: string;

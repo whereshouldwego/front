@@ -3,7 +3,7 @@
  *
  * 기능:
  * - 상단 출발지 검색 입력창 스타일링
- * - 사용자 프로필 배지 스타일링
+ * - 사용자 프로필 배지 스타일링 (제거됨)
  * - 현위치 검색 버튼 스타일링
  * - 다른 사용자 커서 스타일링
  * - 반응형 디자인 적용
@@ -44,105 +44,7 @@
   max-width: 280px; /* 400px * 0.7 */
 }
 
-/* =========================
-   사용자 프로필 배지들
-   ========================= */
-
-.userProfiles {
-  position: fixed;
-  top: 14px; /* 20px * 0.7 */
-  right: 294px; /* 420px * 0.7 */
-  display: flex;
-  gap: 6px; /* 8px * 0.7 */
-  pointer-events: auto;
-  z-index: 1000;
-}
-
-.profileBadge {
-  position: relative;
-  cursor: pointer;
-}
-
-.profileAvatar {
-  width: 24px; /* 34px * 0.7 */
-  height: 24px; /* 34px * 0.7 */
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-weight: 600;
-  font-size: 13px; /* 18px * 0.7 */
-  color: #1a1a1a;
-  border: 1px solid #ffffff; /* 2px * 0.7 */
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1); /* 2px 8px * 0.7 */
-  transition: all 0.2s ease;
-}
-
-.profileAvatar:hover {
-  transform: scale(1.05);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15); /* 4px 12px * 0.7 */
-  transition: all 0.3s ease-out;
-}
-
-/* 개별 사용자 아바타 색상 */
-.meAvatar {
-  background: #FF6B6B;
-}
-
-.yoonAvatar {
-  background: #4ECDC4;
-}
-
-.yekyungAvatar {
-  background: #45B7D1;
-}
-
-.kyubackAvatar {
-  background: #96CEB4;
-}
-
-/* 프로필 툴팁 */
-.profileTooltip {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 6px; /* 8px * 0.7 */
-  background: #ffffff;
-  border-radius: 6px; /* 8px * 0.7 */
-  padding: 8px; /* 12px * 0.7 */
-  box-shadow: 0 3px 11px rgba(0, 0, 0, 0.15); /* 4px 16px * 0.7 */
-  min-width: 140px; /* 200px * 0.7 */
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-7px); /* -10px * 0.7 */
-  transition: all 0.2s ease;
-  pointer-events: auto;
-  z-index: 1000;
-  font-size: 8px; /* 12px * 0.7 */
-}
-
-.profileBadge:hover .profileTooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-/* 출발지 설정 버튼 */
-.setDepartureBtn {
-  background: #0066cc;
-  color: #ffffff;
-  border: none;
-  border-radius: 3px; /* 4px * 0.7 */
-  padding: 4px 8px; /* 6px 12px * 0.7 */
-  font-size: 8px; /* 12px * 0.7 */
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.setDepartureBtn:hover {
-  background: #0052a3;
-}
+/* 사용자 프로필 관련 스타일 제거됨 */
 
 /* =========================
    현위치 검색 버튼 스타일
@@ -293,9 +195,7 @@
 
 /* 대형 화면 (1200px 이하) */
 @media (max-width: 1200px) {
-  .userProfiles {
-    right: 224px; /* 320px * 0.7 */
-  }
+  /* 사용자 프로필 관련 반응형 제거됨 */
 
   .currentLocationContainer {
     bottom: 25px;
@@ -342,20 +242,7 @@
     padding: 8px; /* 12px * 0.7 */
   }
   
-  /* 프로필 배지 조정 */
-  .userProfiles {
-    position: absolute;
-    top: 7px; /* 10px * 0.7 */
-    right: 7px; /* 10px * 0.7 */
-    flex-direction: column;
-    gap: 3px; /* 4px * 0.7 */
-  }
-  
-  .profileAvatar {
-    width: 20px; /* 28px * 0.7 */
-    height: 20px; /* 28px * 0.7 */
-    font-size: 10px; /* 14px * 0.7 */
-  }
+  /* 사용자 프로필 관련 반응형 제거됨 */
   
   /* 현위치 검색 버튼 조정 */
   .currentLocationContainer {
@@ -381,24 +268,7 @@
 
 /* 모바일 (480px 이하) */
 @media (max-width: 480px) {
-  /* 프로필 아바타 더 작게 */
-  .profileAvatar {
-    width: 18px;
-    height: 18px;
-    font-size: 9px;
-    border-width: 0.5px;
-  }
-  
-  .profileTooltip {
-    min-width: 120px;
-    padding: 6px;
-    font-size: 7px;
-  }
-  
-  .setDepartureBtn {
-    padding: 3px 6px;
-    font-size: 7px;
-  }
+  /* 사용자 프로필 관련 모바일 스타일 제거됨 */
   
   /* 현위치 검색 버튼 모바일 최적화 */
   .currentLocationBtn {
@@ -527,10 +397,7 @@
     color: #ffffff;
   }
   
-  .profileAvatar {
-    border-width: 2px;
-    border-color: #000000;
-  }
+  /* 사용자 프로필 관련 고대비 조정 제거됨 */
   
   .cursorDot {
     border-width: 2px;

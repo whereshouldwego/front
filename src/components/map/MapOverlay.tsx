@@ -15,51 +15,20 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import type { MapOverlayConfig, UserProfile, MapCenter } from '../../types';
+import type { MapOverlayConfig, MapCenter } from '../../types';
 import styles from './MapOverlay.module.css';
 import { useWebSocket } from '../../stores/WebSocketContext';
 import { debounce } from '../../utils/search';
 
 interface MapOverlayProps {
-  users?: UserProfile[];
   config?: MapOverlayConfig;
   onDepartureSubmit?: (location: string) => void;
   onDepartureCancel?: () => void;
-  onUserProfileClick?: (userId: string) => void;
   onCurrentLocationSearch?: (center: MapCenter) => void;
   showCurrentLocationButton?: boolean;
   currentMapCenter?: MapCenter;
   className?: string;
 }
-
-// 기본 사용자 프로필들
-const defaultUsers: UserProfile[] = [
-  {
-    id: 'me',
-    name: '나',
-    location: '강남역',
-    avatarColor: '#FF6B6B',
-    isCurrentUser: true
-  },
-  {
-    id: 'yoon',
-    name: '윤',
-    location: '홍대입구역',
-    avatarColor: '#4ECDC4'
-  },
-  {
-    id: 'yekyung',
-    name: '예',
-    location: '고속버스터미널',
-    avatarColor: '#45B7D1'
-  },
-  {
-    id: 'kyuback',
-    name: '규',
-    location: '합정역',
-    avatarColor: '#96CEB4'
-  }
-];
 
 // 기본 설정
 const defaultConfig: MapOverlayConfig = {
@@ -70,11 +39,9 @@ const defaultConfig: MapOverlayConfig = {
 };
 
 const MapOverlay: React.FC<MapOverlayProps> = ({
-  users = defaultUsers,
   config = defaultConfig,
   onDepartureSubmit,
   onDepartureCancel,
-  onUserProfileClick,
   onCurrentLocationSearch,
   showCurrentLocationButton = false,
   currentMapCenter,
@@ -98,9 +65,7 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
     }
   }, [currentMapCenter, sendLatLngUpdate]);
 
-  const handleSetDeparture = () => {
-    setShowDepartureSearch(true);
-  };
+  // 사용자 프로필 기능 제거로 인한 진입 버튼 제거됨
 
   const handleDepartureSubmit = () => {
     if (departureLocation.trim()) {
@@ -122,10 +87,6 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
     if (onCurrentLocationSearch && currentMapCenter) {
       onCurrentLocationSearch(currentMapCenter);
     }
-  };
-
-  const handleUserProfileClick = (userId: string) => {
-    onUserProfileClick?.(userId);
   };
 
   return (
@@ -177,40 +138,6 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
           </button>
         </div>
       )}
-
-      {/* 사용자 프로필 배지들 */}
-      <div className={styles.userProfiles}>
-        {users.map((user) => (
-          <div 
-            key={user.id} 
-            className={styles.profileBadge} 
-            data-user={user.id} 
-            data-location={user.location}
-            onClick={() => handleUserProfileClick(user.id)}
-          >
-            <div 
-              className={styles.profileAvatar}
-              style={{ backgroundColor: user.avatarColor }}
-            >
-              {user.name}
-            </div>
-            <div className={styles.profileTooltip}>
-              <div className="text-xs text-gray-800 mb-1">출발지: {user.location}</div>
-              {user.isCurrentUser && (
-                <button 
-                  className={styles.setDepartureBtn} 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSetDeparture();
-                  }}
-                >
-                  출발지 설정
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
 
       {/* 다른 사용자 커서 렌더링: lat/lng -> 화면 좌표 변환 필요 (간단히 숨김 처리 또는 추후 구현) */}
     </div>
