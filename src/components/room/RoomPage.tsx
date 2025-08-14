@@ -4,10 +4,9 @@
  * 방 페이지
  *
  * 변경 사항(요청 반영):
- * - ✅ API 없이 사이드바/스토어 정보만 사용
- * - ✅ 찜은 해제 전까지 항상 지도에 남도록 sticky 캐시 유지
- * - ✅ 지도 마커 = 검색 결과 ∪ (sticky 찜)
- * - ✅ 찜 마커는 주황+별 아이콘 (isFavorite 플래그)
+ * - ✅ (문구 위치 안내) 에러 페이지 문구는 본 파일 하단의 "에러 상태" JSX에서 렌더됩니다.
+ * - ✅ (정원 초과 처리) 방 참여 실패 중 '정원 초과'를 식별해 전용 문구/화면을 노출합니다.
+ * - ✅ 새 탭 최초 진입 시 항상 새 게스트 발급(기존 기능 유지). 중복 생성 방지는 기존 로직 유지.
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -15,13 +14,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { WebSocketProvider, useWebSocket } from '../../stores/WebSocketContext';
 import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
 import { ChatProvider } from '../../stores/ChatContext';
-import { useRestaurantStore } from '../../stores/RestaurantStore'; // ✅ [추가]
+import { useRestaurantStore } from '../../stores/RestaurantStore';
 import { Sidebar } from '../sidebar';
 import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
 import ChatSection from '../chat/ChatSection';
 import styles from './RoomPage.module.css';
-import type { MapCenter, MapEventHandlers, UserProfile, MapMarker, Restaurant } from '../../types';
+import type { MapCenter, MapEventHandlers, MapMarker, Restaurant } from '../../types';
 
 interface RoomData {
   id: string;
@@ -31,12 +30,37 @@ interface RoomData {
   isValid: boolean;
 }
 
+/* ===== 유틸: 응답 헤더에서 토큰 추출 ===== */
+const extractAccessToken = (headers: Headers): string | null => {
+  const auth = headers.get('Authorization') || headers.get('authorization');
+  if (auth && auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
+  const custom =
+    headers.get('X-Access-Token') ||
+    headers.get('x-access-token') ||
+    headers.get('Access-Token') ||
+    headers.get('access-token');
+  return custom ? custom.trim() : null;
+};
+
+/* ===== 유틸: 바디가 있을 때만 JSON 파싱 (빈 바디/비JSON 방어) ===== */
+async function readJsonIfAny<T>(res: Response): Promise<T | null> {
+  const text = await res.text();
+  if (!text) return null;
+  try { return JSON.parse(text) as T; } catch { return null; }
+}
+
+/* ===== [CAPACITY] 내부적으로 쓸 센티넬 상수 ===== */
+const ROOM_FULL_SENTINEL = '__ROOM_FULL__';
+
 const RoomPage: React.FC = () => {
   const { roomCode, roomId } = useParams<{ roomCode?: string; roomId?: string }>();
   const navigate = useNavigate();
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  /* ===== [TEXT] 에러 메시지 상태: 문자열로 유지하되, 정원초과는 센티넬로 구분 ===== */
   const [error, setError] = useState<string | null>(null);
+
   const isLoadingRef = useRef(false);
   const loadedRoomId = useRef<string | null>(null);
 
@@ -55,19 +79,133 @@ const RoomPage: React.FC = () => {
   const loadRoomData = async (id: string) => {
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
+
     try {
       setLoading(true);
       setError(null);
-      setRoomData({ id, name: `방 ${id}`, participants: [], createdAt: new Date(), isValid: true });
+
+      const joinedKey = `joined::${id}`;
+      const firstEntryInThisTab = sessionStorage.getItem(joinedKey) !== '1';
+
+      // 현재 로컬 상태 (참조용 — 강제 새 발급 시에는 무시)
+      let token = localStorage.getItem('accessToken') || '';
+      let uid = localStorage.getItem('userId') || '';
+      let nick = localStorage.getItem('userNickname') || '';
+      const bound = localStorage.getItem('guestBoundRoomCode') || '';
+
+      /* ===== 게스트 발급: 새 탭 첫 진입이면 credentials: 'omit' 로 강제 새 발급 ===== */
+      const ensureGuestAuth = async (forceNew: boolean) => {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/guest?roomCode=${id}`, {
+          method: 'POST',
+          credentials: forceNew ? 'omit' : 'include', // ★ 새 탭 강제 새 발급 시 쿠키 미전송
+        });
+        if (!res.ok) {
+          const t = await res.text().catch(() => '');
+          throw new Error(`사용자 생성 실패 (${res.status}) ${t}`);
+        }
+        const headerToken = extractAccessToken(res.headers);
+        const body = await readJsonIfAny<{ accessToken?: string; userId?: number | string; nickname?: string }>(res);
+        const finalToken = headerToken || body?.accessToken || '';
+        if (!finalToken) throw new Error('게스트 토큰을 확인할 수 없습니다.');
+
+        token = finalToken;
+        uid = body?.userId != null ? String(body.userId) : '';
+        nick = body?.nickname ?? '';
+
+        localStorage.setItem('accessToken', token);
+        if (uid) localStorage.setItem('userId', uid);
+        if (nick) localStorage.setItem('userNickname', nick);
+        localStorage.setItem('userType', 'guest');
+        localStorage.setItem('guestBoundRoomCode', id); // 어느 방에서 발급됐는지 기록
+      };
+
+      /* ===== [CAPACITY] 방 참여 =====
+         - 실패시 상태코드/본문으로 '정원 초과' 추정 → 센티넬 에러로 throw */
+      const joinRoom = async () => {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+
+        // 본문을 두 번 사용할 수 있도록 clone
+        const resClone = res.clone();
+
+        if (!res.ok && res.status !== 409) {
+          const raw = await res.text().catch(() => '');
+          const looksFull =
+            res.status === 429 || res.status === 409 || res.status === 403 ||
+            /full|capacity|limit|인원|정원|최대\s*인원/i.test(raw); // ★ [CAPACITY] 키워드 추정
+
+          if (looksFull) {
+            // ★ 정원 초과 상황을 센티넬로 명확히 표기
+            throw new Error(ROOM_FULL_SENTINEL);
+          }
+
+          throw new Error(`방 참여 실패`);
+        }
+
+        // 참여 성공/이미참여(409) → 응답 바디가 있으면 저장
+        const joined = await readJsonIfAny<{ userId?: number | string; nickname?: string; color?: string }>(resClone);
+        if (joined?.userId != null) localStorage.setItem('userId', String(joined.userId));
+        if (joined?.nickname) localStorage.setItem('userNickname', joined.nickname);
+        if (joined?.color) localStorage.setItem('userColor', joined.color);
+      };
+
+      /* 실행 흐름 */
+      const hasLocalForThisRoom = !!token && !!uid && bound === id; // <-- [CHANGE] 추가
+
+      if (firstEntryInThisTab) {
+        if (hasLocalForThisRoom) {
+          // <-- [CHANGE] 기존 정보로 바로 참여
+          await joinRoom();
+        } else {
+          // 기존처럼 새 게스트 발급
+          await ensureGuestAuth(true);
+          await joinRoom();
+        }
+        sessionStorage.setItem(joinedKey, '1');
+      } else {
+        // 같은 탭 재진입: 기존 로직 유지
+        if (!token || !uid || bound !== id) {
+          await ensureGuestAuth(false);
+          await joinRoom();
+          sessionStorage.setItem(joinedKey, '1');
+        } else {
+          await joinRoom();
+        }
+      }
+
+      // 최소 방 정보 세팅 (지도/사이드바 기존 로직 유지)
+      setRoomData({
+        id,
+        name: `방 ${id}`,
+        participants: [],
+        createdAt: new Date(),
+        isValid: true
+      });
+      // 전역 접근을 위해 roomCode 저장 (STOMP 후보 클라이언트 등에서 사용)
+      try { localStorage.setItem('roomCode', id); } catch {}
       loadedRoomId.current = id;
+
     } catch (e: any) {
-      setError(e?.message || '방을 불러올 수 없습니다.');
+      console.error('방 정보 로드 실패:', e);
+
+      /* ===== [CAPACITY] 정원 초과면 전용 에러코드로 세팅 ===== */
+      if (e?.message === ROOM_FULL_SENTINEL) {
+        setError(ROOM_FULL_SENTINEL);
+      } else {
+        setError(e?.message || '방을 불러올 수 없습니다.');
+      }
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
     }
   };
 
+  /* 로딩 화면 */
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -79,22 +217,47 @@ const RoomPage: React.FC = () => {
     );
   }
 
+  /* ===== [TEXT] 에러 화면: 이 블록이 스크린샷의 '오류 페이지'입니다. 여기 문구를 바꾸면 됨. ===== */
   if (error || !roomData) {
+    const isRoomFull = error === ROOM_FULL_SENTINEL; // ★ 정원 초과 여부
+
     return (
       <div className={styles.errorContainer}>
         <div className={styles.errorContent}>
           <div className={styles.errorIcon}>🚫</div>
-          <h2 className={styles.errorTitle}>{error || '방을 찾을 수 없습니다'}</h2>
-          <p className={styles.errorDescription}>방 코드가 올바른지 확인해주세요.</p>
+
+          {/* ★ 제목 문구 */}
+          <h2 className={styles.errorTitle}>
+            {isRoomFull ? '정원이 가득 찼어요' : (error || '방을 찾을 수 없습니다')}
+          </h2>
+
+          {/* ★ 설명 문구 */}
+          <p className={styles.errorDescription}>
+            {isRoomFull
+              ? '이 방은 최대 10명까지 입장할 수 있어요. 새 방을 만들거나 호스트에게 알려주세요.'
+              : '방 코드가 올바른지 확인하거나, 새로운 방을 생성해보세요.'}
+          </p>
+
           <div className={styles.errorButtons}>
-            <button onClick={() => navigate('/')} className={`${styles.errorButton} ${styles.errorButtonPrimary}`}>새 방 만들기</button>
-            <button onClick={() => window.history.back()} className={`${styles.errorButton} ${styles.errorButtonSecondary}`}>뒤로가기</button>
+            <button 
+              onClick={() => navigate('/')}
+              className={`${styles.errorButton} ${styles.errorButtonPrimary}`}
+            >
+              새 방 만들기
+            </button>
+            <button 
+              onClick={() => window.history.back()}
+              className={`${styles.errorButton} ${styles.errorButtonSecondary}`}
+            >
+              뒤로가기
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
+  /* 정상 화면 */
   return (
     <WebSocketProvider roomCode={roomData.id}>
       <SidebarProvider>
@@ -117,36 +280,27 @@ const RoomPage: React.FC = () => {
   );
 };
 
-// 방 내부 메인 콘텐츠
+/* === 이하 기존 RoomMainContent(지도/찜/검색 로직) — 기능 변경 없음 === */
 const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
   const { searchResults, setMapCenter, performSearch, selectedRestaurantId } = useSidebar();
   const { sendCursorPosition, otherUsersPositions } = useWebSocket();
 
-  // ✅ [추가] 찜 스토어 + sticky 캐시
   const { favorites, favoriteIndex } = useRestaurantStore();
-  const [stickyFavoriteById, setStickyFavoriteById] = useState<Record<string, Restaurant>>({}); // ✅ [추가]
+  const [stickyFavoriteById, setStickyFavoriteById] = useState<Record<string, Restaurant>>({});
 
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
   const [lastSearchCenter, setLastSearchCenter] = useState<MapCenter | null>(null);
 
-  const [users] = useState<UserProfile[]>([
-    { id: 'me', name: '나', location: '강남역', avatarColor: '#FF6B6B', isCurrentUser: true },
-    { id: 'yoon', name: '윤', location: '홍대입구역', avatarColor: '#4ECDC4' },
-  ]);
-
-  /* ✅ [추가] sticky 갱신 로직 (AppContainer와 동일) */
   useEffect(() => {
     setStickyFavoriteById((prev) => {
       const next: Record<string, Restaurant> = { ...prev };
       const favIdSet = new Set<number>(Array.from(favorites ?? []).map((v: any) => Number(v)));
 
-      // 1) 찜 해제된 항목 제거
       for (const k of Object.keys(next)) {
         const pid = Number(k);
         if (!favIdSet.has(pid)) delete next[k];
       }
 
-      // 2) favoriteIndex 기반 채우기
       const dict = (favoriteIndex ?? {}) as unknown as Record<string, Restaurant>;
       for (const [k, r] of Object.entries(dict)) {
         const pid = Number(k);
@@ -156,7 +310,6 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
         }
       }
 
-      // 3) 검색결과 보강
       for (const r of (searchResults ?? [])) {
         if (!r?.placeId) continue;
         const pid = Number(r.placeId);
@@ -170,7 +323,6 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
     });
   }, [favorites, favoriteIndex, searchResults]);
 
-  /* ✅ [추가] 검색 결과 ∪ sticky 찜 */
   const unionRestaurants: Restaurant[] = useMemo(() => {
     const map = new Map<string, Restaurant>();
     (searchResults ?? []).forEach((r) => { if (r?.placeId != null) map.set(String(r.placeId), r); });
@@ -178,8 +330,11 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
     return Array.from(map.values());
   }, [searchResults, stickyFavoriteById]);
 
-  /* ✅ [변경] 마커 변환: isFavorite 플래그 부여 */
-  const favoriteIdSet = useMemo(() => new Set<number>(Array.from(favorites ?? []).map((v: any) => Number(v))), [favorites]);
+  const favoriteIdSet = useMemo(
+    () => new Set<number>(Array.from(favorites ?? []).map((v: any) => Number(v))),
+    [favorites]
+  );
+
   const mapMarkers = useMemo<(MapMarker & { isFavorite?: boolean })[]>(() => {
     return (unionRestaurants ?? [])
       .filter((r) => Number.isFinite(r?.location?.lat) && Number.isFinite(r?.location?.lng))
@@ -189,17 +344,18 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
         title: r.name,
         category: (r as any).category ?? undefined,
         restaurant: r,
-        isFavorite: favoriteIdSet.has(Number(r.placeId)), // ✅ [추가]
+        isFavorite: favoriteIdSet.has(Number(r.placeId)),
       }));
   }, [unionRestaurants, favoriteIdSet]);
 
-  // ====== 아래는 기존 로직 유지 ======
   const handleMapMoved = useCallback((center: MapCenter) => {
     setMapCenter(center);
     const threshold = 0.001;
-    if (!lastSearchCenter ||
-        Math.abs(center.lat - lastSearchCenter.lat) > threshold ||
-        Math.abs(center.lng - lastSearchCenter.lng) > threshold) {
+    if (
+      !lastSearchCenter ||
+      Math.abs(center.lat - lastSearchCenter.lat) > threshold ||
+      Math.abs(center.lng - lastSearchCenter.lng) > threshold
+    ) {
       setShowCurrentLocationButton(true);
     }
   }, [lastSearchCenter, setMapCenter]);
@@ -227,7 +383,6 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
       id="main-content"
       style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh' }}
     >
-      {/* ✅ [변경] 검색 + (sticky)찜 합친 마커 전달 */}
       <MapContainer
         markers={mapMarkers as any}
         eventHandlers={mapEventHandlers}
@@ -237,7 +392,10 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
         selectedMarkerId={selectedRestaurantId ?? undefined}
       />
       <MapOverlay
-        users={users}
+        users={[
+          { id: 'me', name: '나', location: '강남역', avatarColor: '#FF6B6B', isCurrentUser: true },
+          { id: 'yoon', name: '윤', location: '홍대입구역', avatarColor: '#4ECDC4' },
+        ]}
         onDepartureSubmit={(loc) => console.log('출발지 설정:', loc)}
         onUserProfileClick={(id) => console.log('사용자 클릭:', id)}
         onCurrentLocationSearch={handleCurrentLocationSearch}

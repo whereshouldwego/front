@@ -161,7 +161,7 @@ const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
         eventHandlers={mapEventHandlers}
         onMapMoved={handleMapMoved}
         onCursorMove={(pos) => sendCursorPosition(pos)}
-        cursorPositions={[...otherUsersPositions.entries()].map(([id, position]) => ({ id, position }))}
+        cursorPositions={[...otherUsersPositions.entries()].map(([id, position]) => ({ id, position, userNickname: (position as any).userNickname }))}
         selectedMarkerId={selectedRestaurantId ?? undefined}
       />
       <MapOverlay

@@ -47,6 +47,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
   const subscriptionRef = useRef<StompSubscription | null>(null);
   const userIdRef = useRef<string>('');
   const cacheKeyRef = useRef<string>('');
+  const messageIdSetRef = useRef<Set<string>>(new Set());
 
   const getCacheKey = useCallback((code: string) => `chat_history_${code}`, []);
   const loadCache = useCallback((code: string): ChatMessage[] => {
@@ -77,14 +78,33 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
 
     // 우선 로컬 캐시 복원 (즉시 표시)
     const cached = loadCache(roomCode);
-    if (cached.length > 0) setMessages(cached);
+    if (cached.length > 0) {
+      // 캐시를 우선 중복 제거하여 로드
+      const uniq = new Map<string, ChatMessage>();
+      const keyOf = (m: ChatMessage) => {
+        const idStr = String(m.id ?? '');
+        return idStr || `${m.createdAt ?? ''}|${m.content ?? ''}`;
+      };
+      cached.forEach((m) => uniq.set(keyOf(m), m));
+      const deduped = Array.from(uniq.values());
+      deduped.forEach((m) => {
+        const s = String(m.id ?? '');
+        if (s) messageIdSetRef.current.add(s);
+      });
+      setMessages(deduped);
+    }
 
+    const accessToken = localStorage.getItem('accessToken') || '';
     const client = new Client({
       // SockJS를 사용한 연결
       webSocketFactory: () => new SockJS(endpoint),
       reconnectDelay: 1500,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
+      // STOMP CONNECT 시 Authorization 헤더로 토큰 전달
+      connectHeaders: accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : {},
       onStompError: (frame) => {
         console.error('[STOMP ERROR]', frame.headers['message'], frame.body);
         if (isActive) setError('채팅 서버 오류가 발생했습니다.');
@@ -102,12 +122,20 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
         if (Array.isArray(history)) {
           setMessages((prev) => {
             const uniq = new Map<string, ChatMessage>();
-            const keyOf = (m: ChatMessage) => `${m.id ?? ''}|${m.createdAt ?? ''}|${m.content ?? ''}`;
+            const keyOf = (m: ChatMessage) => {
+              const idStr = String(m.id ?? '');
+              return idStr || `${m.createdAt ?? ''}|${m.content ?? ''}`;
+            };
             prev.forEach((m) => uniq.set(keyOf(m), m));
             history.forEach((m) => uniq.set(keyOf(m), m));
             const merged = Array.from(uniq.values()).sort((a, b) =>
               String(a.createdAt).localeCompare(String(b.createdAt))
             );
+            // 병합 결과의 ID들을 등록
+            merged.forEach((m) => {
+              const s = String(m.id ?? '');
+              if (s) messageIdSetRef.current.add(s);
+            });
             saveCache(roomCode, merged);
             return merged;
           });
@@ -123,7 +151,13 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
         try {
           const data = JSON.parse(msg.body) as ChatMessage;
           if (!data.createdAt) (data as any).createdAt = new Date().toISOString();
+          const idStr = String((data as any).id ?? '');
+          // 중복 메시지 방지
+          if (idStr && messageIdSetRef.current.has(idStr)) return;
+          if (idStr) messageIdSetRef.current.add(idStr);
           setMessages((prev) => {
+            // prev에 동일 ID가 있으면 무시
+            if (idStr && prev.some((m) => String(m.id ?? '') === idStr)) return prev;
             const next = [...prev, data];
             saveCache(roomCode, next);
             return next;
@@ -134,6 +168,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
       });
     };
 
+    // 방 변경 시 기존 ID 집합 초기화
+    messageIdSetRef.current.clear();
     client.activate();
     clientRef.current = client;
 
@@ -143,6 +179,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
       try { client.deactivate(); } catch {}
       clientRef.current = null;
       subscriptionRef.current = null;
+        messageIdSetRef.current.clear();
     };
   }, [roomCode]);
 
@@ -154,6 +191,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
     const payload = {
       roomCode: roomCode,
       userId: userIdRef.current ? Number(userIdRef.current) : null,
+      username: localStorage.getItem('userNickname') || undefined,
       content: message,
     };
 

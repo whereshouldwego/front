@@ -120,6 +120,21 @@ export const useRestaurantStore = create<RestaurantStore>()(
           // (추후 명세 확인 요망) : voteAPI.create / voteAPI.delete 연동
         },
 
+        /**
+         * 좋아요(투표) 1회만 증가: 이미 눌렀으면 무시, 아니면 +1
+         * 서버 브로드캐스트로 최종 동기화됨
+         */
+        voteOnce: (placeId: number) => {
+          set((state) => {
+            if (state.votedRestaurants.has(placeId)) return {} as any;
+            const voted = new Set(state.votedRestaurants);
+            const counts = { ...state.voteCounts };
+            voted.add(placeId);
+            counts[placeId] = (counts[placeId] || 0) + 1;
+            return { votedRestaurants: voted, voteCounts: counts };
+          });
+        },
+
         isFavorited: (placeId: number) => get().favorites.has(placeId),
         isCandidate: (placeId: number) => get().candidates.has(placeId),
         isVoted: (placeId: number) => get().votedRestaurants.has(placeId),

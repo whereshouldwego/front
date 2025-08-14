@@ -222,6 +222,7 @@ export interface ChatMessage {
   id: string;
   roomCode: string;
   userId: number;
+  username?: string;
   content: string;
   createdAt: string;     // ISO
   type?: 'user' | 'bot';
@@ -477,6 +478,7 @@ export interface RestaurantStore {
   toggleFavorite: (placeId: number, userId: number) => Promise<void>;
   toggleCandidate: (placeId: number) => void;
   toggleVote: (placeId: number) => void;
+  voteOnce: (placeId: number) => void;
   isFavorited: (placeId: number) => boolean;
   isCandidate: (placeId: number) => boolean;
   isVoted: (placeId: number) => boolean;
