@@ -45,6 +45,73 @@
 }
 
 /* 사용자 프로필 관련 스타일 제거됨 */
+/* ===== User Presence (카카오톡 스타일) ===== */
+.userPresence {
+  position: fixed;
+  top: 14px;
+  right: 295px; /* 채팅창 width(280px) + gap(10px) + chat margin(5px) */
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+  z-index: 1500;
+  backdrop-filter: blur(10px);
+}
+
+.userItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.userAvatar {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.userAvatar:hover {
+  transform: scale(1.1);
+}
+
+.userIcon {
+  width: 16px;
+  height: 16px;
+  color: #ffffff;
+  filter: drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.3));
+}
+
+.userNickname {
+  font-size: 9px;
+  font-weight: 600;
+  color: #374151;
+  text-align: center;
+  max-width: 40px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.userCount {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-left: 4px;
+}
 
 /* =========================
    현위치 검색 버튼 스타일
@@ -221,6 +288,36 @@
 
 /* 태블릿 (768px 이하) */
 @media (max-width: 768px) {
+  /* 사용자 프레즌스 조정 */
+  .userPresence {
+    top: 10px;
+    right: 275px; /* 채팅창 width(260px) + gap(10px) + chat margin(5px) */
+    padding: 6px 10px;
+  }
+  
+  .userItem {
+    gap: 3px;
+  }
+  
+  .userAvatar {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .userIcon {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .userNickname {
+    font-size: 8px;
+    max-width: 36px;
+  }
+  
+  .userCount {
+    font-size: 11px;
+  }
+
   /* 상단 검색창 조정 */
   .topSearchContainer {
     top: 7px; /* 10px * 0.7 */
@@ -268,7 +365,37 @@
 
 /* 모바일 (480px 이하) */
 @media (max-width: 480px) {
-  /* 사용자 프로필 관련 모바일 스타일 제거됨 */
+  /* 사용자 프레즌스 모바일 최적화 */
+  .userPresence {
+    top: 8px;
+    right: 275px; /* 채팅창 width(260px) + gap(10px) + chat margin(5px) */
+    padding: 4px 8px;
+    gap: 4px;
+  }
+  
+  .userItem {
+    gap: 2px;
+  }
+  
+  .userAvatar {
+    width: 20px;
+    height: 20px;
+    border-width: 1px;
+  }
+  
+  .userIcon {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .userNickname {
+    font-size: 7px;
+    max-width: 30px;
+  }
+  
+  .userCount {
+    font-size: 10px;
+  }
   
   /* 현위치 검색 버튼 모바일 최적화 */
   .currentLocationBtn {
@@ -323,6 +450,17 @@
   .modalSearchContainer {
     background: rgba(31, 41, 55, 0.95);
     border: 1px solid #374151;
+  }
+
+  .userPresence {
+    background: rgba(31, 41, 55, 0.95);
+    border-color: #374151;
+  }
+  .userCount {
+    color: #e5e7eb;
+  }
+  .userNickname {
+    color: #e5e7eb;
   }
   
   .currentLocationBtn {

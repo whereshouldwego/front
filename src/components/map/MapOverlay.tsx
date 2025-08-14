@@ -18,6 +18,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { MapOverlayConfig, MapCenter } from '../../types';
 import styles from './MapOverlay.module.css';
 import { useWebSocket } from '../../stores/WebSocketContext';
+import { colorFromString } from '../../utils/color';
 import { debounce } from '../../utils/search';
 
 interface MapOverlayProps {
@@ -50,7 +51,7 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
   const [showDepartureSearch, setShowDepartureSearch] = useState(config.showDepartureSearch);
   const [departureLocation, setDepartureLocation] = useState(config.departureLocation);
 
-  const { sendCursorPosition } = useWebSocket();
+  const { sendCursorPosition, presentUsers } = useWebSocket();
 
   const sendLatLngUpdate = useCallback(
     debounce((center: MapCenter) => {
@@ -94,6 +95,28 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
         className={`absolute inset-0 pointer-events-none ${className}`}
         style={{ cursor: 'default' }}
       >
+      {/* User Presence: 접속자 표시 */}
+      {presentUsers?.length > 0 && (
+        <div className={styles.userPresence}>
+          {presentUsers.slice(0, 4).map((u) => (
+            <div key={u.id} className={styles.userItem}>
+              <div 
+                className={styles.userAvatar}
+                style={{ backgroundColor: colorFromString(u.id) }}
+                title={u.name}
+              >
+                <svg className={styles.userIcon} viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </div>
+              <span className={styles.userNickname}>{u.name}</span>
+            </div>
+          ))}
+          {presentUsers.length > 4 && (
+            <span className={styles.userCount}>+{presentUsers.length - 4}</span>
+          )}
+        </div>
+      )}
       {/* 상단 출발지 검색 입력칸 (출발지 설정 버튼 클릭 시에만 표시) */}
       {showDepartureSearch && (
         <div className={styles.topSearchContainer} id="top-search-container">

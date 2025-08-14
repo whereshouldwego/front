@@ -18,6 +18,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Map, MapMarker, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import type { MapMarker as MapMarkerType, MapEventHandlers, MapCenter } from '../../types';
+import { colorFromString } from '../../utils/color';
 
 /* ✅ (추가) 찜 구분 플래그 허용 */
 type MarkerWithFavorite = MapMarkerType & { isFavorite?: boolean };
@@ -251,7 +252,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         {cursorPositions.map((cp) => (
           <CustomOverlayMap key={cp.id} position={cp.position} zIndex={1000}>
             <div style={{ display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
-              <svg width="30" height="30" viewBox="0 0 24 24" fill={stringToColor(cp.id)} stroke="#ffffff" strokeWidth="1" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill={colorFromString(cp.id)} stroke="#ffffff" strokeWidth="1" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}>
                 <path d="M3 2l7 17 2-6 6-2L3 2z" />
               </svg>
               <div style={{ marginLeft: 6, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}>
@@ -264,14 +265,6 @@ const MapContainer: React.FC<MapContainerProps> = ({
     </div>
   );
 };
-
-// 사용자 ID로부터 안정적인 색상 생성
-function stringToColor(input: string): string {
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
-  const hue = hash % 360;
-  return `hsl(${hue}, 75%, 45%)`;
-}
 
 // 표시용 닉네임 결정
 function getUserNickname(userId: string): string {
