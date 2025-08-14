@@ -2,212 +2,49 @@
  * AppContainer.tsx
  *
  * 앱 메인 컨테이너 컴포넌트
- *
- * 변경 사항(요청 반영):
- * - ✅ API 없이 사이드바/스토어 정보만 사용
- * - ✅ 찜은 사용자가 해제하기 전까지 항상 지도에 남도록 sticky 캐시 유지
- * - ✅ 지도 마커 = 검색 결과 ∪ (sticky 찜) (placeId 기준 중복 제거)
- * - ✅ 찜 마커는 주황+별 아이콘 (isFavorite 플래그)
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
-import { ChatProvider } from '../../stores/ChatContext';
-import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
-import { WebSocketProvider, useWebSocket } from '../../stores/WebSocketContext';
-import { useRestaurantStore } from '../../stores/RestaurantStore'; // ✅ [추가]
-import type { MapCenter, MapEventHandlers, MapMarker, Restaurant, UserProfile } from '../../types';
-import ChatSection from '../chat/ChatSection';
 import InitialScreen from '../initial/InitialScreen';
-import MapContainer from '../map/MapContainer';
-import MapOverlay from '../map/MapOverlay';
 import RoomPage from '../room/RoomPage';
-import { Sidebar } from '../sidebar';
+// [추가] 배경을 뷰포트 전체에 강제로 붙이기 위해 포털 사용
+import { createPortal } from 'react-dom';
 
-const MainService: React.FC<{ roomId?: string }> = ({ roomId }) => {
-  const { searchResults, performSearch, selectedRestaurantId } = useSidebar();
-  const { sendCursorPosition, otherUsersPositions } = useWebSocket();
 
-  // ✅ [추가] 찜 스토어 사용
-  const { favorites, favoriteIndex } = useRestaurantStore();
+/* [추가] 뷰포트 전체 고정 배경 레이어를 body에 직접 렌더링 */
+const BackgroundLayer: React.FC = () => {
+  if (typeof document === 'undefined') return null; // SSR 안전 가드
 
-  const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
-  const [lastSearchCenter, setLastSearchCenter] = useState<MapCenter | null>(null);
-  const [currentMapCenter, setCurrentMapCenter] = useState<MapCenter>({ lat: 37.5002, lng: 127.0364 });
-
-  const [users, setUsers] = useState<UserProfile[]>([
-    { id: 'me', name: '나', location: '강남역', avatarColor: '#FF6B6B', isCurrentUser: true },
-    { id: 'yoon', name: '윤', location: '홍대입구역', avatarColor: '#4ECDC4' },
-    { id: 'yekyung', name: '예', location: '고속버스터미널', avatarColor: '#45B7D1' },
-    { id: 'kyuback', name: '규', location: '합정역', avatarColor: '#96CEB4' }
-  ]);
-
-  /* ✅ [추가] 찜 스냅샷: 패널 전환/검색과 무관하게 유지될 로컬 캐시
-        - 키: placeId (string)
-        - 값: Restaurant (좌표 있는 것만 저장)
-        - 찜 해제 시에만 제거 */
-  const [stickyFavoriteById, setStickyFavoriteById] = useState<Record<string, Restaurant>>({});
-
-  /* ✅ [추가] 찜/인덱스/검색결과가 바뀔 때 sticky 갱신
-        1) 현재 찜(Set)에 없는 항목은 sticky에서 제거
-        2) favoriteIndex에 있는 상세를 sticky에 채움
-        3) (보강) 검색결과 중 ‘찜’인 것도 좌표가 있으면 sticky에 채움 */
-  useEffect(() => {
-    setStickyFavoriteById((prev) => {
-      const next: Record<string, Restaurant> = { ...prev };
-      const favIdSet = new Set<number>(Array.from(favorites ?? []).map((v: any) => Number(v)));
-
-      // 1) 찜 해제된 항목 제거
-      for (const k of Object.keys(next)) {
-        const pid = Number(k);
-        if (!favIdSet.has(pid)) delete next[k]; // ✅ [추가] 찜 해제 시 제거
-      }
-
-      // 2) favoriteIndex 기반 채우기
-      const dict = (favoriteIndex ?? {}) as unknown as Record<string, Restaurant>;
-      for (const [k, r] of Object.entries(dict)) {
-        const pid = Number(k);
-        if (!favIdSet.has(pid)) continue;
-        if (r && r.location && Number.isFinite(r.location.lat) && Number.isFinite(r.location.lng)) {
-          next[String(pid)] = r; // ✅ [추가] 좌표 있는 상세를 스냅샷에 저장
-        }
-      }
-
-      // 3) 검색결과 보강: 검색 결과 중 찜인 것들로 빈자리 채우기
-      for (const r of (searchResults ?? [])) {
-        if (!r?.placeId) continue;
-        const pid = Number(r.placeId);
-        if (!favIdSet.has(pid)) continue;
-        if (!next[String(pid)] && r.location && Number.isFinite(r.location.lat) && Number.isFinite(r.location.lng)) {
-          next[String(pid)] = r; // ✅ [추가] 검색결과로 보강
-        }
-      }
-
-      return next;
-    });
-  }, [favorites, favoriteIndex, searchResults]);
-
-  /* ✅ [추가] 지도에 뿌릴 최종 리스트: 검색결과 ∪ sticky 찜 */
-  const unionRestaurants: Restaurant[] = useMemo(() => {
-    const map = new Map<string, Restaurant>();
-    (searchResults ?? []).forEach((r) => { if (r?.placeId != null) map.set(String(r.placeId), r); });
-    Object.values(stickyFavoriteById).forEach((r) => { if (r?.placeId != null) map.set(String(r.placeId), r); });
-    return Array.from(map.values());
-  }, [searchResults, stickyFavoriteById]);
-
-  /* ✅ [변경] 마커 변환: isFavorite 플래그로 찜 마커 구분 */
-  const favoriteIdSet = useMemo(() => new Set<number>(Array.from(favorites ?? []).map((v: any) => Number(v))), [favorites]);
-  const mapMarkers = useMemo<(MapMarker & { isFavorite?: boolean })[]>(() => {
-    return (unionRestaurants ?? [])
-      .filter((r) => Number.isFinite(r?.location?.lat) && Number.isFinite(r?.location?.lng))
-      .map((r) => ({
-        id: String(r.placeId),
-        position: { lat: r.location.lat, lng: r.location.lng },
-        title: r.name,
-        category: (r as any).category ?? undefined,
-        restaurant: r,
-        isFavorite: favoriteIdSet.has(Number(r.placeId)), // ✅ [추가] 주황+별 구분
-      }));
-  }, [unionRestaurants, favoriteIdSet]);
-
-  // ====== 이하 기존 로직 유지 ======
-  const handleAuroraToggle = (isActive: boolean) => {
-    console.log('Aurora 버튼 상태:', isActive, '현재 방 ID:', roomId);
-  };
-  const handleDepartureSubmit = (location: string) => {
-    setUsers((prev) => prev.map((u) => (u.isCurrentUser ? { ...u, location } : u)));
-  };
-  const handleUserProfileClick = (userId: string) => {
-    console.log('사용자 프로필 클릭:', userId, '현재 방 ID:', roomId);
-  };
-
-  const handleMapMoved = (center: MapCenter) => {
-    setCurrentMapCenter(center);
-    const threshold = 0.001;
-    if (!lastSearchCenter ||
-        Math.abs(center.lat - lastSearchCenter.lat) > threshold ||
-        Math.abs(center.lng - lastSearchCenter.lng) > threshold) {
-      setShowCurrentLocationButton(true);
-    }
-  };
-
-  const handleCurrentLocationSearch = async (center: MapCenter) => {
-    try {
-      await performSearch({ query: '', location: `${center.lat},${center.lng}`, category: '', limit: 20 } as any);
-      setShowCurrentLocationButton(false);
-      setLastSearchCenter(center);
-    } catch (error) {
-      console.error('현위치 검색 실패:', error);
-      setShowCurrentLocationButton(false);
-    }
-  };
-
-  const mapEventHandlers: MapEventHandlers = {
-    onMapClick: (lat, lng) => console.log('지도 클릭:', lat, lng),
-    onMarkerClick: (markerId) => console.log('마커 클릭:', markerId),
-    onMapDragEnd: (center) => console.log('지도 드래그 종료:', center),
-    onMapZoomChanged: (level) => console.log('지도 줌 변경:', level),
-  };
-
-  return (
+  return createPortal(
     <div
-      className="bg-gray-100 relative overflow-hidden"
-      id="main-content"
-      style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh' }}
+      className="fixed inset-0 z-[0] pointer-events-none" // 화면 최상단에 고정(클릭 방해 X)
     >
-      {/* ✅ [변경] 검색 + (sticky)찜 합친 마커 전달 */}
-      <MapContainer
-        markers={mapMarkers as any}
-        eventHandlers={mapEventHandlers}
-        onMapMoved={handleMapMoved}
-        onCursorMove={(pos) => sendCursorPosition(pos)}
-        cursorPositions={[...otherUsersPositions.entries()].map(([id, position]) => ({ id, position, userNickname: (position as any).userNickname }))}
-        selectedMarkerId={selectedRestaurantId ?? undefined}
-      />
-      <MapOverlay
-        users={users}
-        onDepartureSubmit={handleDepartureSubmit}
-        onUserProfileClick={handleUserProfileClick}
-        onCurrentLocationSearch={handleCurrentLocationSearch}
-        showCurrentLocationButton={showCurrentLocationButton}
-        currentMapCenter={currentMapCenter}
-      />
-      <ChatSection onAuroraToggle={handleAuroraToggle} />
-    </div>
+      <div className="w-screen h-screen">
+        {/* 화면을 꽉 채우기: object-cover (잘림 허용). 잘림 없이 보려면 contain 으로 변경 */}
+        <img
+          src="/images/map-background.png"
+          alt="배경 지도"
+          className="w-full h-full object-cover object-center block select-none"
+          draggable={false}
+        />
+      </div>
+    </div>,
+    document.body
   );
 };
 
-
 // 앱 컨테이너 컴포넌트
 const MainPage: React.FC = () => {
-  const handleSidebarExpandedChange = (expanded: boolean) => {
-    console.log('Sidebar expanded:', expanded);
-  };
-
   return (
     <div className="relative">
-      {/* 배경으로 서비스 화면 */}
-      <div className="fixed inset-0">
-        {/* Demo page without a room: WebSocket disabled */}
-        <WebSocketProvider disabled>
-          <SidebarProvider>
-            <ChatProvider>
-              <div className="h-screen relative">
-                <div className="absolute inset-0">
-                  <div id="sidebar-container">
-                  <Sidebar 
-                    onExpandedChange={handleSidebarExpandedChange}
-                  />
-                  </div>
-                  <MainService />
-                </div>
-              </div>
-            </ChatProvider>
-          </SidebarProvider>
-        </WebSocketProvider>
-      </div>
+      {/* [변경] 기존 내부 fixed 배경을 제거하고, 포털 기반 전역 배경 레이어로 교체 */}
+      <BackgroundLayer /> {/* [추가] 뷰포트 전체에 깔리는 전역 배경 */}
+
       {/* 오버레이로 초기 화면 */}
-      <InitialScreen />
+      <div className="relative z-[10] pointer-events-auto">{/* [추가] 배경 위로 올려 보장 */}
+        <InitialScreen />
+      </div>
     </div>
   );
 };
