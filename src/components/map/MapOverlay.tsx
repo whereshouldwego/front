@@ -50,6 +50,7 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
 }) => {
   const [showDepartureSearch, setShowDepartureSearch] = useState(config.showDepartureSearch);
   const [departureLocation, setDepartureLocation] = useState(config.departureLocation);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const { sendCursorPosition, presentUsers } = useWebSocket();
 
@@ -98,23 +99,61 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
       {/* User Presence: 접속자 표시 */}
       {presentUsers?.length > 0 && (
         <div className={styles.userPresence}>
-          {presentUsers.slice(0, 4).map((u) => (
-            <div key={u.id} className={styles.userItem}>
-              <div 
-                className={styles.userAvatar}
-                style={{ backgroundColor: colorFromString(u.id) }}
-                title={u.name}
-              >
-                <svg className={styles.userIcon} viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
-              </div>
-              <span className={styles.userNickname}>{u.name}</span>
+          <div className={styles.userRows}>
+            {/* 첫 번째 줄: 최대 5명 */}
+            <div className={styles.userRow}>
+              {presentUsers.slice(0, 5).map((u) => (
+                <div key={u.id} className={styles.userItem}>
+                  <div 
+                    className={styles.userAvatar}
+                    style={{ backgroundColor: colorFromString(u.id) }}
+                    title={u.name}
+                  >
+                    <svg className={styles.userIcon} viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                  </div>
+                  <span className={styles.userNickname}>{u.name}</span>
+                </div>
+              ))}
+              
+              {/* 확장 버튼 또는 카운터 */}
+              {presentUsers.length > 5 && (
+                <div 
+                  className={styles.expandButton}
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  title={`${presentUsers.length - 5}명 더 보기`}
+                >
+                  {isExpanded ? '−' : `+${presentUsers.length - 5}`}
+                </div>
+              )}
             </div>
-          ))}
-          {presentUsers.length > 4 && (
-            <span className={styles.userCount}>+{presentUsers.length - 4}</span>
-          )}
+            
+            {/* 두 번째 줄: 6-10명 (확장된 경우에만 표시) */}
+            {isExpanded && presentUsers.length > 5 && (
+              <div className={styles.userRow}>
+                {presentUsers.slice(5, 10).map((u) => (
+                  <div key={u.id} className={styles.userItem}>
+                    <div 
+                      className={styles.userAvatar}
+                      style={{ backgroundColor: colorFromString(u.id) }}
+                      title={u.name}
+                    >
+                      <svg className={styles.userIcon} viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                      </svg>
+                    </div>
+                    <span className={styles.userNickname}>{u.name}</span>
+                  </div>
+                ))}
+                
+                {/* 10명 초과시 남은 인원 표시 */}
+                {presentUsers.length > 10 && (
+                  <span className={styles.userCount}>+{presentUsers.length - 10}</span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
       {/* 상단 출발지 검색 입력칸 (출발지 설정 버튼 클릭 시에만 표시) */}

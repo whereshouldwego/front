@@ -50,67 +50,112 @@
   position: fixed;
   top: 14px;
   right: 295px; /* 채팅창 width(280px) + gap(10px) + chat margin(5px) */
-  display: flex;
-  gap: 6px;
-  align-items: center;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid #e5e7eb;
-  border-radius: 20px;
-  padding: 8px 12px;
+  border-radius: 18px;
+  padding: 6px 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   pointer-events: auto;
   z-index: 1500;
   backdrop-filter: blur(10px);
+  max-width: 260px;
+}
+
+.userRows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 90px;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.userRows::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.userRow {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .userItem {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .userAvatar {
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s ease;
 }
 
 .userAvatar:hover {
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
 .userIcon {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
   color: #ffffff;
   filter: drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.3));
 }
 
 .userNickname {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 600;
   color: #374151;
   text-align: center;
-  max-width: 40px;
+  max-width: 32px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .userCount {
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 600;
   color: #374151;
-  margin-left: 4px;
+  margin-left: 3px;
+}
+
+.expandButton {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6366f1;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.expandButton:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.5);
+  transform: scale(1.05);
+}
+
+.expandButton:active {
+  transform: scale(0.95);
 }
 
 /* =========================
@@ -292,30 +337,46 @@
   .userPresence {
     top: 10px;
     right: 275px; /* 채팅창 width(260px) + gap(10px) + chat margin(5px) */
-    padding: 6px 10px;
+    padding: 4px 6px;
+    max-width: 220px;
   }
   
-  .userItem {
+  .userRows {
+    max-height: 80px;
+    gap: 4px;
+  }
+  
+  .userRow {
     gap: 3px;
   }
   
+  .userItem {
+    gap: 2px;
+  }
+  
   .userAvatar {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
   }
   
   .userIcon {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
   }
   
   .userNickname {
-    font-size: 8px;
-    max-width: 36px;
+    font-size: 7px;
+    max-width: 28px;
   }
   
   .userCount {
-    font-size: 11px;
+    font-size: 8px;
+  }
+  
+  .expandButton {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
   }
 
   /* 상단 검색창 조정 */
@@ -369,8 +430,17 @@
   .userPresence {
     top: 8px;
     right: 275px; /* 채팅창 width(260px) + gap(10px) + chat margin(5px) */
-    padding: 4px 8px;
-    gap: 4px;
+    padding: 3px 5px;
+    max-width: 190px;
+  }
+  
+  .userRows {
+    max-height: 70px;
+    gap: 3px;
+  }
+  
+  .userRow {
+    gap: 3px;
   }
   
   .userItem {
@@ -384,17 +454,23 @@
   }
   
   .userIcon {
-    width: 12px;
-    height: 12px;
+    width: 11px;
+    height: 11px;
   }
   
   .userNickname {
-    font-size: 7px;
-    max-width: 30px;
+    font-size: 6px;
+    max-width: 24px;
   }
   
   .userCount {
-    font-size: 10px;
+    font-size: 7px;
+  }
+  
+  .expandButton {
+    width: 20px;
+    height: 20px;
+    font-size: 9px;
   }
   
   /* 현위치 검색 버튼 모바일 최적화 */
@@ -461,6 +537,15 @@
   }
   .userNickname {
     color: #e5e7eb;
+  }
+  .expandButton {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #a5b4fc;
+  }
+  .expandButton:hover {
+    background: rgba(99, 102, 241, 0.3);
+    border-color: rgba(99, 102, 241, 0.6);
   }
   
   .currentLocationBtn {
