@@ -186,6 +186,8 @@ const RoomPage: React.FC = () => {
         createdAt: new Date(),
         isValid: true
       });
+      // 전역 접근을 위해 roomCode 저장 (STOMP 후보 클라이언트 등에서 사용)
+      try { localStorage.setItem('roomCode', id); } catch {}
       loadedRoomId.current = id;
 
     } catch (e: any) {

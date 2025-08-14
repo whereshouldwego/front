@@ -3,16 +3,18 @@
  * - /candidate/history/{roomCode}를 가져와
  *   candidate 카드와 voteCount 표시를 바로 사용
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { candidateAPI } from '../lib/api';
 import type { RestaurantWithStatus } from '../types';
 import { useRestaurantStore } from '../stores/RestaurantStore';
 import { localDetailToRestaurant } from '../utils/location';
+import { CandidateClient } from '../stores/CandidateClient';
 
 export function useCandidates(roomCode: string | undefined) {
   const [items, setItems] = useState<RestaurantWithStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initializedRef = useRef(false);
 
   const { isFavorited, isVoted } = useRestaurantStore();
 
@@ -43,7 +45,15 @@ export function useCandidates(roomCode: string | undefined) {
     }
   }, [roomCode, isFavorited, isVoted]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    if (!roomCode) return;
+    localStorage.setItem('roomCode', roomCode);
+    void refresh();
+    if (!initializedRef.current) {
+      CandidateClient.init(roomCode, (list) => setItems(list));
+      initializedRef.current = true;
+    }
+  }, [roomCode, refresh]);
 
   return { items, loading, error, refresh };
 }

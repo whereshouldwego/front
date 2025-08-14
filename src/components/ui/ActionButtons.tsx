@@ -1,6 +1,7 @@
 import React from 'react';
 import styles from './ActionButtons.module.css';
 import { useRestaurantStore } from '../../stores/RestaurantStore';
+import { CandidateClient } from '../../stores/CandidateClient';
 
 interface Props {
   userId: number;
@@ -24,8 +25,9 @@ const ActionButtons: React.FC<Props> = ({
     isVoted,
     isCandidate,
     toggleFavorite,
-    toggleVote,
+    voteOnce,
     toggleCandidate,
+    getVoteCount,
   } = useRestaurantStore();
 
   const handleFavoriteToggle = async () => {
@@ -37,15 +39,32 @@ const ActionButtons: React.FC<Props> = ({
     }
   };
 
-  const handleVoteToggle = () => {
-    toggleVote(placeId);
+  const handleVoteOnce = () => {
+    if (isVoted(placeId)) return; // 이미 눌렀으면 무시
+    // 로컬 낙관적 증가
+    voteOnce(placeId);
+    // 서버 브로드캐스트로 동기화 (투표 추가)
+    CandidateClient.sendAction({
+      placeId,
+      userId: Number.isFinite(Number(userId)) ? Number(userId) : undefined,
+      actionType: 'ADD_VOTE',
+    });
     onStateChange?.();
   };
 
-  // const handleCandidateToggle = () => {
-  //   toggleCandidate(placeId);
-  //   onStateChange?.();
-  // };
+  const handleCandidateToggle = () => {
+    const userIdNum = Number(userId);
+    const currentlyOn = isCandidate(placeId);
+    // 낙관적 표시(아이콘 토글용) — 서버 브로드캐스트가 곧 동기화함
+    toggleCandidate(placeId);
+    // STOMP로 서버에 통지 → 서버가 전체 후보 목록을 브로드캐스트함
+    CandidateClient.sendAction({
+      placeId,
+      userId: Number.isFinite(userIdNum) ? userIdNum : undefined,
+      actionType: currentlyOn ? 'REMOVE_PLACE' : 'ADD_PLACE',
+    });
+    onStateChange?.();
+  };
 
   return (
     <div className={styles.actionButtons}>
@@ -63,17 +82,20 @@ const ActionButtons: React.FC<Props> = ({
       )}
       
       {showVoteButton && (
-        <button
-          className={`${styles.actionButton} ${styles.voteButton} ${isVoted(placeId) ? styles.active : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleVoteToggle();
-            onStateChange?.();
-          }}
-          title={isVoted(placeId) ? '투표취소' : '투표하기'}
-        >
-          {isVoted(placeId) ? '👍🏿' : '👍🏻'}
-        </button>
+        <div className={styles.voteContainer}>
+          <button
+            className={`${styles.actionButton} ${styles.voteButton} ${isVoted(placeId) ? styles.active : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleVoteOnce();
+            }}
+            title={isVoted(placeId) ? '좋아요 완료' : '좋아요'}
+            disabled={isVoted(placeId)}
+          >
+            {isVoted(placeId) ? '👍🏿' : '👍🏻'}
+          </button>
+          <span className={styles.voteCount}>{getVoteCount(placeId)}</span>
+        </div>
       )}
       
       {showCandidateButton && (
@@ -81,8 +103,7 @@ const ActionButtons: React.FC<Props> = ({
           className={`${styles.actionButton} ${styles.candidateButton} ${isCandidate(placeId) ? styles.active : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            toggleCandidate(placeId);
-            onStateChange?.();
+            handleCandidateToggle();
           }}
           title={isCandidate(placeId) ? '후보제거' : '후보추가'}
         >

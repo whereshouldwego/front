@@ -74,7 +74,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
     let timeout: any = null;
     const fn = (center: MapCenter) => {
       if (timeout) return;
-      timeout = setTimeout(() => { timeout = null; }, 80);
+      timeout = setTimeout(() => { timeout = null; }, 50);
       onCursorMove(center);
     };
     throttledOnCursorMove.current = fn;
@@ -251,7 +251,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         {cursorPositions.map((cp) => (
           <CustomOverlayMap key={cp.id} position={cp.position} zIndex={1000}>
             <div style={{ display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill={stringToColor(cp.id)} stroke="#ffffff" strokeWidth="1" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill={stringToColor(cp.id)} stroke="#ffffff" strokeWidth="1" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}>
                 <path d="M3 2l7 17 2-6 6-2L3 2z" />
               </svg>
               <div style={{ marginLeft: 6, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}>
