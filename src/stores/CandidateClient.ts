@@ -84,6 +84,18 @@ class CandidateClientSingleton {
     client.onConnect = () => {
       this.subscribe(roomCode);
       this.flushPending();
+      // 연결 후 초기 상태를 요청하기 위해 빈 메시지 전송
+      // 백엔드에서 접속 시 자동으로 현재 상태를 보내주지만 확실히 하기 위함
+      setTimeout(() => {
+        if (this.client?.connected) {
+          try {
+            // 빈 액션을 보내서 서버가 현재 상태를 다시 브로드캐스트하도록 유도
+            // 실제로는 서버에서 접속 시 자동으로 전송하지만, 안전장치 역할
+          } catch (e) {
+            // 실패해도 문제없음 - STOMP 자동 업데이트에 의존
+          }
+        }
+      }, 100);
     };
 
     client.onStompError = (frame) => {

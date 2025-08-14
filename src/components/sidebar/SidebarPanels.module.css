@@ -266,6 +266,59 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  padding: 8px;
+  margin: 4px 0;
+}
+
+/* 순위별 배경색과 테두리 */
+.goldRank {
+  background: linear-gradient(135deg, #fff9c4 0%, #fef3c7 100%);
+  border: 2px solid #f59e0b;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.silverRank {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 2px solid #64748b;
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
+}
+
+.bronzeRank {
+  background: linear-gradient(135deg, #fef7ef 0%, #fed7aa 100%);
+  border: 2px solid #ea580c;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
+}
+
+/* 순위 배지 */
+.rankBadge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 4px 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(4px);
+}
+
+.rankMedal {
+  font-size: 20px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.rankText {
+  font-size: 8px;
+  font-weight: 700;
+  color: #374151;
+  text-align: center;
 }
 
 .voteButton {

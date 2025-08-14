@@ -29,6 +29,37 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
     refresh();
   };
 
+  // 순위별 메달과 스타일 정의
+  const getRankInfo = (index: number, voteCount: number) => {
+    // 투표 수가 0이면 순위 없음
+    if (voteCount === 0) {
+      return { medal: '', className: '', rankText: '' };
+    }
+
+    switch (index) {
+      case 0:
+        return { 
+          medal: '🥇', 
+          className: styles.goldRank,
+          rankText: '1위'
+        };
+      case 1:
+        return { 
+          medal: '🥈', 
+          className: styles.silverRank,
+          rankText: '2위'
+        };
+      case 2:
+        return { 
+          medal: '🥉', 
+          className: styles.bronzeRank,
+          rankText: '3위'
+        };
+      default:
+        return { medal: '', className: '', rankText: `${index + 1}위` };
+    }
+  };
+
   return (
     <div className={styles.panelContent}>
       {/* 헤더 */}
@@ -64,24 +95,38 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
               <span>투표 후보 ({items.length}개)</span>
             </div>
             <div className={styles.restaurantCards}>
-              {items.map((restaurant) => (
-                <div key={restaurant.placeId} className={styles.candidateItem}>
-                  <RestaurantCard
-                    data={restaurant}
-                    className={styles.restaurantCard}
-                    actions={
-                      <ActionButtons
-                        userId={userId || 1}
-                        placeId={restaurant.placeId}
-                        showCandidateButton
-                        showVoteButton
-                        onStateChange={handleStateChange}
-                        isInCandidatePanel={true}
-                      />
-                    }
-                  />
-                </div>
-              ))}
+              {items.map((restaurant, index) => {
+                const rankInfo = getRankInfo(index, restaurant.voteCount || 0);
+                return (
+                  <div 
+                    key={restaurant.placeId} 
+                    className={`${styles.candidateItem} ${rankInfo.className}`}
+                  >
+                    {/* 순위 표시 */}
+                    {rankInfo.medal && (
+                      <div className={styles.rankBadge}>
+                        <span className={styles.rankMedal}>{rankInfo.medal}</span>
+                        <span className={styles.rankText}>{rankInfo.rankText}</span>
+                      </div>
+                    )}
+                    
+                    <RestaurantCard
+                      data={restaurant}
+                      className={styles.restaurantCard}
+                      actions={
+                        <ActionButtons
+                          userId={userId || 1}
+                          placeId={restaurant.placeId}
+                          showCandidateButton
+                          showVoteButton
+                          onStateChange={handleStateChange}
+                          isInCandidatePanel={true}
+                        />
+                      }
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
