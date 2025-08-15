@@ -3,7 +3,7 @@
  *
  * 기능:
  * - 상단 출발지 검색 입력창 스타일링
- * - 사용자 프로필 배지 스타일링
+ * - 사용자 프로필 배지 스타일링 (제거됨)
  * - 현위치 검색 버튼 스타일링
  * - 다른 사용자 커서 스타일링
  * - 반응형 디자인 적용
@@ -44,104 +44,158 @@
   max-width: 280px; /* 400px * 0.7 */
 }
 
-/* =========================
-   사용자 프로필 배지들
-   ========================= */
-
-.userProfiles {
+/* 사용자 프로필 관련 스타일 제거됨 */
+/* ===== User Presence (카카오톡 스타일) ===== */
+.userPresence {
   position: fixed;
-  top: 14px; /* 20px * 0.7 */
-  right: 294px; /* 420px * 0.7 */
-  display: flex;
-  gap: 6px; /* 8px * 0.7 */
+  top: 14px;
+  right: 295px; /* 채팅창 width(280px) + gap(10px) + chat margin(5px) */
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 6px 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   pointer-events: auto;
-  z-index: 1000;
+  z-index: 1500;
+  backdrop-filter: blur(10px);
+  max-width: 260px;
 }
 
-.profileBadge {
+.userRows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 90px;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.userRows::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.userRow {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.userItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.userAvatar {
   position: relative;
-  cursor: pointer;
-}
-
-.profileAvatar {
-  width: 24px; /* 34px * 0.7 */
-  height: 24px; /* 34px * 0.7 */
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-weight: 600;
-  font-size: 13px; /* 18px * 0.7 */
-  color: #1a1a1a;
-  border: 1px solid #ffffff; /* 2px * 0.7 */
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1); /* 2px 8px * 0.7 */
-  transition: all 0.2s ease;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
 }
 
-.profileAvatar:hover {
-  transform: scale(1.05);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15); /* 4px 12px * 0.7 */
-  transition: all 0.3s ease-out;
+.userAvatar:hover {
+  transform: scale(1.08);
 }
 
-/* 개별 사용자 아바타 색상 */
-.meAvatar {
-  background: #FF6B6B;
-}
-
-.yoonAvatar {
-  background: #4ECDC4;
-}
-
-.yekyungAvatar {
-  background: #45B7D1;
-}
-
-.kyubackAvatar {
-  background: #96CEB4;
-}
-
-/* 프로필 툴팁 */
-.profileTooltip {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 6px; /* 8px * 0.7 */
-  background: #ffffff;
-  border-radius: 6px; /* 8px * 0.7 */
-  padding: 8px; /* 12px * 0.7 */
-  box-shadow: 0 3px 11px rgba(0, 0, 0, 0.15); /* 4px 16px * 0.7 */
-  min-width: 140px; /* 200px * 0.7 */
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-7px); /* -10px * 0.7 */
-  transition: all 0.2s ease;
-  pointer-events: auto;
-  z-index: 1000;
-  font-size: 8px; /* 12px * 0.7 */
-}
-
-.profileBadge:hover .profileTooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-/* 출발지 설정 버튼 */
-.setDepartureBtn {
-  background: #0066cc;
-  color: #ffffff;
-  border: none;
-  border-radius: 3px; /* 4px * 0.7 */
-  padding: 4px 8px; /* 6px 12px * 0.7 */
-  font-size: 8px; /* 12px * 0.7 */
+/* 현재 사용자 프로필 스타일 */
+.currentUserAvatar {
   cursor: pointer;
-  transition: background 0.2s ease;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.5), 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
-.setDepartureBtn:hover {
-  background: #0052a3;
+.currentUserAvatar:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.userIcon {
+  width: 13px;
+  height: 13px;
+  color: #ffffff;
+  filter: drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.3));
+}
+
+.userNickname {
+  font-size: 8px;
+  font-weight: 600;
+  color: #374151;
+  text-align: center;
+  max-width: 32px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+/* 현재 사용자 닉네임 스타일 */
+.currentUserNickname {
+  cursor: pointer;
+  color: #3b82f6 !important;
+  font-weight: 700;
+  position: relative;
+}
+
+.currentUserNickname:hover {
+  color: #2563eb !important;
+}
+
+.currentUserNickname::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 1px;
+  background-color: #3b82f6;
+  transition: width 0.2s ease;
+}
+
+.currentUserNickname:hover::after {
+  width: 80%;
+}
+
+.userCount {
+  font-size: 9px;
+  font-weight: 600;
+  color: #374151;
+  margin-left: 3px;
+}
+
+.expandButton {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6366f1;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.expandButton:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.5);
+  transform: scale(1.05);
+}
+
+.expandButton:active {
+  transform: scale(0.95);
 }
 
 /* =========================
@@ -293,9 +347,7 @@
 
 /* 대형 화면 (1200px 이하) */
 @media (max-width: 1200px) {
-  .userProfiles {
-    right: 224px; /* 320px * 0.7 */
-  }
+  /* 사용자 프로필 관련 반응형 제거됨 */
 
   .currentLocationContainer {
     bottom: 25px;
@@ -321,6 +373,52 @@
 
 /* 태블릿 (768px 이하) */
 @media (max-width: 768px) {
+  /* 사용자 프레즌스 조정 */
+  .userPresence {
+    top: 10px;
+    right: 275px; /* 채팅창 width(260px) + gap(10px) + chat margin(5px) */
+    padding: 4px 6px;
+    max-width: 220px;
+  }
+  
+  .userRows {
+    max-height: 80px;
+    gap: 4px;
+  }
+  
+  .userRow {
+    gap: 3px;
+  }
+  
+  .userItem {
+    gap: 2px;
+  }
+  
+  .userAvatar {
+    width: 22px;
+    height: 22px;
+  }
+  
+  .userIcon {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .userNickname {
+    font-size: 7px;
+    max-width: 28px;
+  }
+  
+  .userCount {
+    font-size: 8px;
+  }
+  
+  .expandButton {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+  }
+
   /* 상단 검색창 조정 */
   .topSearchContainer {
     top: 7px; /* 10px * 0.7 */
@@ -342,20 +440,7 @@
     padding: 8px; /* 12px * 0.7 */
   }
   
-  /* 프로필 배지 조정 */
-  .userProfiles {
-    position: absolute;
-    top: 7px; /* 10px * 0.7 */
-    right: 7px; /* 10px * 0.7 */
-    flex-direction: column;
-    gap: 3px; /* 4px * 0.7 */
-  }
-  
-  .profileAvatar {
-    width: 20px; /* 28px * 0.7 */
-    height: 20px; /* 28px * 0.7 */
-    font-size: 10px; /* 14px * 0.7 */
-  }
+  /* 사용자 프로필 관련 반응형 제거됨 */
   
   /* 현위치 검색 버튼 조정 */
   .currentLocationContainer {
@@ -381,23 +466,51 @@
 
 /* 모바일 (480px 이하) */
 @media (max-width: 480px) {
-  /* 프로필 아바타 더 작게 */
-  .profileAvatar {
-    width: 18px;
-    height: 18px;
+  /* 사용자 프레즌스 모바일 최적화 */
+  .userPresence {
+    top: 8px;
+    right: 275px; /* 채팅창 width(260px) + gap(10px) + chat margin(5px) */
+    padding: 3px 5px;
+    max-width: 190px;
+  }
+  
+  .userRows {
+    max-height: 70px;
+    gap: 3px;
+  }
+  
+  .userRow {
+    gap: 3px;
+  }
+  
+  .userItem {
+    gap: 2px;
+  }
+  
+  .userAvatar {
+    width: 20px;
+    height: 20px;
+    border-width: 1px;
+  }
+  
+  .userIcon {
+    width: 11px;
+    height: 11px;
+  }
+  
+  .userNickname {
+    font-size: 6px;
+    max-width: 24px;
+  }
+  
+  .userCount {
+    font-size: 7px;
+  }
+  
+  .expandButton {
+    width: 20px;
+    height: 20px;
     font-size: 9px;
-    border-width: 0.5px;
-  }
-  
-  .profileTooltip {
-    min-width: 120px;
-    padding: 6px;
-    font-size: 7px;
-  }
-  
-  .setDepartureBtn {
-    padding: 3px 6px;
-    font-size: 7px;
   }
   
   /* 현위치 검색 버튼 모바일 최적화 */
@@ -453,6 +566,26 @@
   .modalSearchContainer {
     background: rgba(31, 41, 55, 0.95);
     border: 1px solid #374151;
+  }
+
+  .userPresence {
+    background: rgba(31, 41, 55, 0.95);
+    border-color: #374151;
+  }
+  .userCount {
+    color: #e5e7eb;
+  }
+  .userNickname {
+    color: #e5e7eb;
+  }
+  .expandButton {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #a5b4fc;
+  }
+  .expandButton:hover {
+    background: rgba(99, 102, 241, 0.3);
+    border-color: rgba(99, 102, 241, 0.6);
   }
   
   .currentLocationBtn {
@@ -527,10 +660,7 @@
     color: #ffffff;
   }
   
-  .profileAvatar {
-    border-width: 2px;
-    border-color: #000000;
-  }
+  /* 사용자 프로필 관련 고대비 조정 제거됨 */
   
   .cursorDot {
     border-width: 2px;

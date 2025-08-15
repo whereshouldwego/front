@@ -22,6 +22,7 @@ interface BackendCursorMessage {
   roomCode: string;
   lat: number;
   lng: number;
+  username?: string;
 }
 
 interface WebSocketContextType {
@@ -30,6 +31,7 @@ interface WebSocketContextType {
   lastMessage: MessageEvent | null;
   readyState: number;
   otherUsersPositions: Map<string, CursorPositionLatLng>;
+  presentUsers: { id: string; name: string }[];
 }
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null);
@@ -53,6 +55,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
   const [lastMessage, setLastMessage] = useState<MessageEvent | null>(null);
   const [readyState, setReadyState] = useState<number>(disabled || !roomCode ? WebSocket.CLOSED : WebSocket.CONNECTING);
   const [otherUsersPositions, setOtherUsersPositions] = useState<Map<string, CursorPositionLatLng>>(new Map());
+  const [userNameById, setUserNameById] = useState<Map<string, string>>(new Map());
+  const [allConnectedUsers, setAllConnectedUsers] = useState<Set<string>>(new Set());
   const pendingPositionsRef = useRef<Map<string, CursorPositionLatLng> | null>(null);
   const flushTimerRef = useRef<number | null>(null);
 
@@ -76,21 +80,66 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
 
     ws.onopen = () => {
       setReadyState(ws.readyState);
+      // 접속 시 본인을 연결된 사용자 목록에 추가
+      const selfId = String(parsedUserId);
+      const nickname = localStorage.getItem('userNickname') || '';
+      
+      if (selfId) {
+        setAllConnectedUsers(prev => new Set([...prev, selfId]));
+        setUserNameById(prev => {
+          const next = new Map(prev);
+          if (nickname) next.set(selfId, nickname);
+          return next;
+        });
+        
+        // 접속 알림 메시지를 즉시 전송하여 다른 사용자들이 인식할 수 있도록 함
+        const joinPayload: BackendCursorMessage = {
+          userId: parsedUserId,
+          roomCode: roomCode!,
+          lat: 0, // 임시 좌표
+          lng: 0, // 임시 좌표  
+          username: nickname || undefined,
+        };
+        
+        // 약간 지연 후 전송 (WebSocket 연결 안정화)
+        setTimeout(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(joinPayload));
+          }
+        }, 100);
+      }
     };
 
     ws.onmessage = (event) => {
       setLastMessage(event);
       try {
         const data: BackendCursorMessage = JSON.parse(event.data);
+        const userId = String(data.userId);
+        const isSelf = userId === String(parsedUserId);
+        
+        // 모든 사용자를 연결된 사용자 목록에 추가 (커서 메시지를 받으면 해당 사용자가 활성 상태)
+        setAllConnectedUsers(prev => new Set([...prev, userId]));
+        
+        // 사용자명 업데이트
+        if (data.username) {
+          setUserNameById((prev) => {
+            const next = new Map(prev);
+            next.set(userId, data.username!);
+            return next;
+          });
+        }
+        
+        // 커서 위치 업데이트 (본인 제외)
         if (
           typeof data.lat === 'number' &&
           typeof data.lng === 'number' &&
           data.userId != null &&
-          String(data.userId) !== String(parsedUserId)
+          !isSelf
         ) {
           // Batch updates to reduce re-renders
           if (!pendingPositionsRef.current) pendingPositionsRef.current = new Map(otherUsersPositions);
-          pendingPositionsRef.current.set(String(data.userId), { lat: data.lat, lng: data.lng });
+          pendingPositionsRef.current.set(userId, { lat: data.lat, lng: data.lng });
+          
           if (flushTimerRef.current == null) {
             flushTimerRef.current = window.setTimeout(() => {
               if (pendingPositionsRef.current) {
@@ -120,6 +169,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
     setSocket(ws);
 
     return () => {
+      // 연결 해제 시 정리
+      setAllConnectedUsers(new Set());
+      setOtherUsersPositions(new Map());
+      setUserNameById(new Map());
       ws.close();
     };
   }, [roomCode, disabled]);
@@ -138,9 +191,23 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
       roomCode,
       lat: position.lat,
       lng: position.lng,
+      username: localStorage.getItem('userNickname') || undefined,
     };
     socket.send(JSON.stringify(payload));
   };
+
+  const presentUsers = useMemo(() => {
+    // 연결된 모든 사용자 + 커서 위치가 있는 사용자들을 합친 목록
+    const allUserIds = new Set<string>([...allConnectedUsers, ...otherUsersPositions.keys()]);
+    const selfId = String(parsedUserId);
+    if (selfId) allUserIds.add(selfId);
+    
+    return Array.from(allUserIds).map((id) => {
+      const isSelf = String(selfId) === String(id);
+      const name = userNameById.get(id) || (isSelf ? (localStorage.getItem('userNickname') || '나') : id.slice(0, 4));
+      return { id, name };
+    });
+  }, [allConnectedUsers, otherUsersPositions, userNameById, parsedUserId]);
 
   const contextValue: WebSocketContextType = {
     sendMessage,
@@ -148,6 +215,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
     lastMessage,
     readyState,
     otherUsersPositions,
+    presentUsers,
   };
 
   return (

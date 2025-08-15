@@ -418,12 +418,7 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
         selectedMarkerId={selectedRestaurantId ?? undefined}
       />
       <MapOverlay
-        users={[
-          { id: 'me', name: '나', location: '강남역', avatarColor: '#FF6B6B', isCurrentUser: true },
-          { id: 'yoon', name: '윤', location: '홍대입구역', avatarColor: '#4ECDC4' },
-        ]}
         onDepartureSubmit={(loc) => console.log('출발지 설정:', loc)}
-        onUserProfileClick={(id) => console.log('사용자 클릭:', id)}
         onCurrentLocationSearch={handleCurrentLocationSearch}
         showCurrentLocationButton={showCurrentLocationButton}
       />

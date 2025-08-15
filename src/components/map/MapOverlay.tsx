@@ -14,52 +14,23 @@
  * - 반응형 breakpoint 적용
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
-import type { MapOverlayConfig, UserProfile, MapCenter } from '../../types';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import type { MapOverlayConfig, MapCenter } from '../../types';
 import styles from './MapOverlay.module.css';
 import { useWebSocket } from '../../stores/WebSocketContext';
+import { colorFromString } from '../../utils/color';
 import { debounce } from '../../utils/search';
+import UserProfileEdit from '../profile/UserProfileEdit';
 
 interface MapOverlayProps {
-  users?: UserProfile[];
   config?: MapOverlayConfig;
   onDepartureSubmit?: (location: string) => void;
   onDepartureCancel?: () => void;
-  onUserProfileClick?: (userId: string) => void;
   onCurrentLocationSearch?: (center: MapCenter) => void;
   showCurrentLocationButton?: boolean;
   currentMapCenter?: MapCenter;
   className?: string;
 }
-
-// 기본 사용자 프로필들
-const defaultUsers: UserProfile[] = [
-  {
-    id: 'me',
-    name: '나',
-    location: '강남역',
-    avatarColor: '#FF6B6B',
-    isCurrentUser: true
-  },
-  {
-    id: 'yoon',
-    name: '윤',
-    location: '홍대입구역',
-    avatarColor: '#4ECDC4'
-  },
-  {
-    id: 'yekyung',
-    name: '예',
-    location: '고속버스터미널',
-    avatarColor: '#45B7D1'
-  },
-  {
-    id: 'kyuback',
-    name: '규',
-    location: '합정역',
-    avatarColor: '#96CEB4'
-  }
-];
 
 // 기본 설정
 const defaultConfig: MapOverlayConfig = {
@@ -70,11 +41,9 @@ const defaultConfig: MapOverlayConfig = {
 };
 
 const MapOverlay: React.FC<MapOverlayProps> = ({
-  users = defaultUsers,
   config = defaultConfig,
   onDepartureSubmit,
   onDepartureCancel,
-  onUserProfileClick,
   onCurrentLocationSearch,
   showCurrentLocationButton = false,
   currentMapCenter,
@@ -82,8 +51,17 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
 }) => {
   const [showDepartureSearch, setShowDepartureSearch] = useState(config.showDepartureSearch);
   const [departureLocation, setDepartureLocation] = useState(config.departureLocation);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
 
-  const { sendCursorPosition } = useWebSocket();
+  const { sendCursorPosition, presentUsers } = useWebSocket();
+
+  // 현재 사용자 ID 가져오기
+  const currentUserId = useMemo(() => {
+    const userIdRaw = localStorage.getItem('userId') || '';
+    const n = Number(userIdRaw);
+    return String(Number.isFinite(n) && !Number.isNaN(n) ? n : userIdRaw || `user_${Math.random().toString(36).substring(2, 9)}`);
+  }, []);
 
   const sendLatLngUpdate = useCallback(
     debounce((center: MapCenter) => {
@@ -98,9 +76,7 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
     }
   }, [currentMapCenter, sendLatLngUpdate]);
 
-  const handleSetDeparture = () => {
-    setShowDepartureSearch(true);
-  };
+  // 사용자 프로필 기능 제거로 인한 진입 버튼 제거됨
 
   const handleDepartureSubmit = () => {
     if (departureLocation.trim()) {
@@ -124,8 +100,31 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
     }
   };
 
-  const handleUserProfileClick = (userId: string) => {
-    onUserProfileClick?.(userId);
+  // 프로필 클릭 핸들러
+  const handleProfileClick = (userId: string) => {
+    // 본인 프로필만 편집 가능
+    if (userId === currentUserId) {
+      setEditingProfileId(userId);
+    }
+  };
+
+  // 프로필 이름 변경 핸들러
+  const handleProfileNameChange = (newName: string) => {
+    // localStorage에 새로운 닉네임 저장
+    localStorage.setItem('userNickname', newName);
+    
+    // 편집 상태 종료
+    setEditingProfileId(null);
+    
+    // WebSocket을 통해 다른 사용자들에게 업데이트된 정보 전송
+    if (currentMapCenter) {
+      sendCursorPosition(currentMapCenter);
+    }
+  };
+
+  // 프로필 편집 취소 핸들러
+  const handleProfileEditCancel = () => {
+    setEditingProfileId(null);
   };
 
   return (
@@ -133,6 +132,106 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
         className={`absolute inset-0 pointer-events-none ${className}`}
         style={{ cursor: 'default' }}
       >
+      {/* User Presence: 접속자 표시 */}
+      {presentUsers?.length > 0 && (
+        <div className={styles.userPresence}>
+          <div className={styles.userRows}>
+            {/* 첫 번째 줄: 최대 5명 */}
+            <div className={styles.userRow}>
+              {presentUsers.slice(0, 5).map((u) => {
+                const isCurrentUser = u.id === currentUserId;
+                const isEditing = editingProfileId === u.id;
+                
+                return (
+                  <div key={u.id} className={styles.userItem}>
+                    <div 
+                      className={`${styles.userAvatar} ${isCurrentUser ? styles.currentUserAvatar : ''}`}
+                      style={{ backgroundColor: colorFromString(u.id) }}
+                      title={isCurrentUser ? `${u.name} (클릭하여 이름 변경)` : u.name}
+                      onClick={() => handleProfileClick(u.id)}
+                    >
+                      <svg className={styles.userIcon} viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                      </svg>
+                    </div>
+                    {isEditing ? (
+                      <UserProfileEdit
+                        currentName={u.name}
+                        onNameChange={handleProfileNameChange}
+                        onCancel={handleProfileEditCancel}
+                        isInline={true}
+                      />
+                    ) : (
+                      <span 
+                        className={`${styles.userNickname} ${isCurrentUser ? styles.currentUserNickname : ''}`}
+                        onClick={() => isCurrentUser && handleProfileClick(u.id)}
+                      >
+                        {u.name}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              
+              {/* 확장 버튼 또는 카운터 */}
+              {presentUsers.length > 5 && (
+                <div 
+                  className={styles.expandButton}
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  title={`${presentUsers.length - 5}명 더 보기`}
+                >
+                  {isExpanded ? '−' : `+${presentUsers.length - 5}`}
+                </div>
+              )}
+            </div>
+            
+            {/* 두 번째 줄: 6-10명 (확장된 경우에만 표시) */}
+            {isExpanded && presentUsers.length > 5 && (
+              <div className={styles.userRow}>
+                {presentUsers.slice(5, 10).map((u) => {
+                  const isCurrentUser = u.id === currentUserId;
+                  const isEditing = editingProfileId === u.id;
+                  
+                  return (
+                    <div key={u.id} className={styles.userItem}>
+                      <div 
+                        className={`${styles.userAvatar} ${isCurrentUser ? styles.currentUserAvatar : ''}`}
+                        style={{ backgroundColor: colorFromString(u.id) }}
+                        title={isCurrentUser ? `${u.name} (클릭하여 이름 변경)` : u.name}
+                        onClick={() => handleProfileClick(u.id)}
+                      >
+                        <svg className={styles.userIcon} viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </svg>
+                      </div>
+                      {isEditing ? (
+                        <UserProfileEdit
+                          currentName={u.name}
+                          onNameChange={handleProfileNameChange}
+                          onCancel={handleProfileEditCancel}
+                          isInline={true}
+                        />
+                      ) : (
+                        <span 
+                          className={`${styles.userNickname} ${isCurrentUser ? styles.currentUserNickname : ''}`}
+                          onClick={() => isCurrentUser && handleProfileClick(u.id)}
+                        >
+                          {u.name}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                
+                {/* 10명 초과시 남은 인원 표시 */}
+                {presentUsers.length > 10 && (
+                  <span className={styles.userCount}>+{presentUsers.length - 10}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {/* 상단 출발지 검색 입력칸 (출발지 설정 버튼 클릭 시에만 표시) */}
       {showDepartureSearch && (
         <div className={styles.topSearchContainer} id="top-search-container">
@@ -177,40 +276,6 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
           </button>
         </div>
       )}
-
-      {/* 사용자 프로필 배지들 */}
-      <div className={styles.userProfiles}>
-        {users.map((user) => (
-          <div 
-            key={user.id} 
-            className={styles.profileBadge} 
-            data-user={user.id} 
-            data-location={user.location}
-            onClick={() => handleUserProfileClick(user.id)}
-          >
-            <div 
-              className={styles.profileAvatar}
-              style={{ backgroundColor: user.avatarColor }}
-            >
-              {user.name}
-            </div>
-            <div className={styles.profileTooltip}>
-              <div className="text-xs text-gray-800 mb-1">출발지: {user.location}</div>
-              {user.isCurrentUser && (
-                <button 
-                  className={styles.setDepartureBtn} 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSetDeparture();
-                  }}
-                >
-                  출발지 설정
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
 
       {/* 다른 사용자 커서 렌더링: lat/lng -> 화면 좌표 변환 필요 (간단히 숨김 처리 또는 추후 구현) */}
     </div>

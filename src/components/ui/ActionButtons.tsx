@@ -10,6 +10,8 @@ interface Props {
   showVoteButton?: boolean;
   showCandidateButton?: boolean;
   onStateChange?: () => void;
+  // 후보 패널에서 사용될 때 버튼 의미 변경
+  isInCandidatePanel?: boolean;
 }
 
 const ActionButtons: React.FC<Props> = ({
@@ -18,14 +20,15 @@ const ActionButtons: React.FC<Props> = ({
   showFavoriteButton, 
   showVoteButton, 
   showCandidateButton,
-  onStateChange
+  onStateChange,
+  isInCandidatePanel = false
 }) => {
   const {
     isFavorited,
     isVoted,
     isCandidate,
     toggleFavorite,
-    voteOnce,
+    toggleVote,
     toggleCandidate,
     getVoteCount,
   } = useRestaurantStore();
@@ -39,17 +42,18 @@ const ActionButtons: React.FC<Props> = ({
     }
   };
 
-  const handleVoteOnce = () => {
-    if (isVoted(placeId)) return; // 이미 눌렀으면 무시
-    // 로컬 낙관적 증가
-    voteOnce(placeId);
-    // 서버 브로드캐스트로 동기화 (투표 추가)
+  const handleVoteToggle = () => {
+    const currentlyVoted = isVoted(placeId);
+    // 로컬 낙관적 토글
+    toggleVote(placeId);
+    // 서버 브로드캐스트로 동기화 (투표 추가/제거)
     CandidateClient.sendAction({
       placeId,
       userId: Number.isFinite(Number(userId)) ? Number(userId) : undefined,
-      actionType: 'ADD_VOTE',
+      actionType: currentlyVoted ? 'REMOVE_VOTE' : 'ADD_VOTE',
     });
-    onStateChange?.();
+    // 투표도 실시간 동기화되므로 onStateChange 호출하지 않음
+    // onStateChange?.();
   };
 
   const handleCandidateToggle = () => {
@@ -63,7 +67,8 @@ const ActionButtons: React.FC<Props> = ({
       userId: Number.isFinite(userIdNum) ? userIdNum : undefined,
       actionType: currentlyOn ? 'REMOVE_PLACE' : 'ADD_PLACE',
     });
-    onStateChange?.();
+    // 후보 관련 액션은 실시간 동기화되므로 onStateChange 호출하지 않음
+    // onStateChange?.();
   };
 
   return (
@@ -87,14 +92,22 @@ const ActionButtons: React.FC<Props> = ({
             className={`${styles.actionButton} ${styles.voteButton} ${isVoted(placeId) ? styles.active : ''}`}
             onClick={(e) => {
               e.stopPropagation();
-              handleVoteOnce();
+              handleVoteToggle();
             }}
-            title={isVoted(placeId) ? '좋아요 완료' : '좋아요'}
-            disabled={isVoted(placeId)}
+            title={
+              isInCandidatePanel 
+                ? (isVoted(placeId) ? '투표 취소' : '투표하기')
+                : (isVoted(placeId) ? '좋아요 취소' : '좋아요')
+            }
           >
-            {isVoted(placeId) ? '👍🏿' : '👍🏻'}
+            {isInCandidatePanel 
+              ? (isVoted(placeId) ? '🗳️' : '🗳️')
+              : (isVoted(placeId) ? '👍🏿' : '👍🏻')
+            }
           </button>
-          <span className={styles.voteCount}>{getVoteCount(placeId)}</span>
+          <span className={styles.voteCount}>
+            {isInCandidatePanel ? `${getVoteCount(placeId)}표` : getVoteCount(placeId)}
+          </span>
         </div>
       )}
       
@@ -105,9 +118,16 @@ const ActionButtons: React.FC<Props> = ({
             e.stopPropagation();
             handleCandidateToggle();
           }}
-          title={isCandidate(placeId) ? '후보제거' : '후보추가'}
+          title={
+            isInCandidatePanel 
+              ? '후보에서 삭제하기'
+              : (isCandidate(placeId) ? '후보제거' : '후보추가')
+          }
         >
-          {isCandidate(placeId) ? '✅' : '☑️'}
+          {isInCandidatePanel 
+            ? '🗑️'
+            : (isCandidate(placeId) ? '✅' : '☑️')
+          }
         </button>
       )}
     </div>

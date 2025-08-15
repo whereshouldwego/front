@@ -18,6 +18,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Map, MapMarker, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import type { MapMarker as MapMarkerType, MapEventHandlers, MapCenter } from '../../types';
+import { colorFromString } from '../../utils/color';
+import { useWebSocket } from '../../stores/WebSocketContext';
 
 /* ✅ (추가) 찜 구분 플래그 허용 */
 type MarkerWithFavorite = MapMarkerType & { isFavorite?: boolean };
@@ -57,6 +59,24 @@ const MapContainer: React.FC<MapContainerProps> = ({
   const mapRef = useRef<any>(null);
   const mapObjectRef = useRef<any>(null);
   const throttledOnCursorMove = useRef<((center: MapCenter) => void) | null>(null);
+
+  // WebSocket에서 사용자 이름 정보 가져오기
+  const { presentUsers } = useWebSocket();
+
+  // 표시용 닉네임 결정
+  const getUserNickname = (userId: string): string => {
+    const selfId = localStorage.getItem('userId') || '';
+    if (String(selfId) === String(userId)) {
+      return localStorage.getItem('userNickname') || '나';
+    }
+    // 다른 사용자의 경우 WebSocket에서 받은 닉네임이 있으면 사용
+    const user = presentUsers.find(u => u.id === userId);
+    if (user && user.name) {
+      return user.name;
+    }
+    // 없으면 userId 일부 사용
+    return userId.slice(0, 6);
+  };
 
   // ✅ 말풍선(가게명) hover 제어
   const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
@@ -247,14 +267,49 @@ const MapContainer: React.FC<MapContainerProps> = ({
           </CustomOverlayMap>
         )}
 
-        {/* 다른 사용자 커서 표시 (원본 유지) */}
+        {/* 다른 사용자 커서 표시 */}
         {cursorPositions.map((cp) => (
           <CustomOverlayMap key={cp.id} position={cp.position} zIndex={1000}>
-            <div style={{ display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
-              <svg width="30" height="30" viewBox="0 0 24 24" fill={stringToColor(cp.id)} stroke="#ffffff" strokeWidth="1" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))' }}>
-                <path d="M3 2l7 17 2-6 6-2L3 2z" />
+            <div style={{ 
+              position: 'relative',
+              pointerEvents: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              transform: 'translate(0, 0)', // 정확한 위치에 맞추기 위해
+            }}>
+              {/* 커서 포인터 */}
+              <svg 
+                width="30" 
+                height="30" 
+                viewBox="0 0 24 24" 
+                fill={colorFromString(cp.id)} 
+                stroke="#ffffff" 
+                strokeWidth="1.5" 
+                style={{ 
+                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))',
+                  marginBottom: '2px'
+                }}
+              >
+                <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
               </svg>
-              <div style={{ marginLeft: 6, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}>
+              
+              {/* 사용자 닉네임 - 커서 아래에 표시 */}
+              <div style={{ 
+                //background: 'rgba(0,0,0,0.8)', 
+                //color: '#fff', 
+                //padding: '3px 8px', 
+                //borderRadius: '12px', 
+                color: '#000', 
+                fontSize: '11px', 
+                fontWeight: '600', 
+                whiteSpace: 'nowrap',
+                marginLeft: '2px',
+                //border: '1px solid rgba(255,255,255,0.2)',
+                //boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                //backdropFilter: 'blur(4px)'
+                textShadow: '1px 1px 2px rgba(255,255,255,0.8), -1px -1px 2px rgba(255,255,255,0.8)'
+              }}>
                 {getUserNickname(cp.id)}
               </div>
             </div>
@@ -264,22 +319,5 @@ const MapContainer: React.FC<MapContainerProps> = ({
     </div>
   );
 };
-
-// 사용자 ID로부터 안정적인 색상 생성
-function stringToColor(input: string): string {
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
-  const hue = hash % 360;
-  return `hsl(${hue}, 75%, 45%)`;
-}
-
-// 표시용 닉네임 결정
-function getUserNickname(userId: string): string {
-  const selfId = localStorage.getItem('userId') || '';
-  if (String(selfId) === String(userId)) {
-    return localStorage.getItem('userNickname') || '나';
-  }
-  return userId.slice(0, 4);
-}
 
 export default MapContainer;
