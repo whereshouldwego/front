@@ -1,8 +1,8 @@
 // src/hooks/useFavorites.ts
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { favoriteAPI, placeAPI } from '../lib/api';
-import type { LocalDetail, RestaurantWithStatus } from '../types';
-import { localDetailToRestaurant } from '../utils/location';
+import type { RestaurantWithStatus } from '../types';
+import { placeDetailToRestaurant } from '../utils/location';
 import { useRestaurantStore } from '../stores/RestaurantStore';
 
 /**
@@ -31,7 +31,7 @@ export function useFavorites(userId?: number) {
         res.data.map(async (f) => {
           const d = await placeAPI.getPlaceById(f.placeId);
           if (d.success) {
-            const restaurant = localDetailToRestaurant(d.data as LocalDetail);
+            const restaurant = placeDetailToRestaurant(d.data);
           // 상세 실패 시 최소 보정
             return {
               ...restaurant,

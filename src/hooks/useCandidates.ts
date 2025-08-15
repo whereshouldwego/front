@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { candidateAPI } from '../lib/api';
 import type { RestaurantWithStatus } from '../types';
 import { useRestaurantStore } from '../stores/RestaurantStore';
-import { localDetailToRestaurant } from '../utils/location';
+import { placeDetailToRestaurant } from '../utils/location';
 import { CandidateClient } from '../stores/CandidateClient';
 
 export function useCandidates(roomCode: string | undefined) {
@@ -33,7 +33,7 @@ export function useCandidates(roomCode: string | undefined) {
         const candidateIds = new Set<number>();
         
         res.data.forEach(item => {
-          const placeId = item.place.id;
+          const placeId = item.place.placeId;
           candidateIds.add(placeId);
           voteCounts[placeId] = item.voteCount;
           
@@ -52,10 +52,10 @@ export function useCandidates(roomCode: string | undefined) {
         });
         
         const enrichedItems: RestaurantWithStatus[] = res.data.map(item => ({
-          ...localDetailToRestaurant(item.place),
-          isFavorite: isFavorited(item.place.id),
+          ...placeDetailToRestaurant(item.place),
+          isFavorite: isFavorited(item.place.placeId),
           isCandidate: true,
-          isVoted: votedSet.has(item.place.id),
+          isVoted: votedSet.has(item.place.placeId),
           voteCount: item.voteCount
         }));
         setItems(enrichedItems);

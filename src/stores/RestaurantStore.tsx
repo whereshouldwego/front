@@ -29,7 +29,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
         hydrateCandidates: async (roomCode: string) => {
           const res = await candidateAPI.history(roomCode);
           if (res.success) {
-            const ids = res.data.map(item => Number(item.place.id));
+            const ids = res.data.map(item => Number(item.place.placeId));
             set({ candidates: new Set(ids) });
           }
         },

@@ -169,12 +169,31 @@
 }
 
 .menuTitle {
-  font-size: 10px;
-  border-radius: 4px;
+  font-size: 11px;
+  color: #666;
   font-weight: 500;
-  color:#9fa6ac;
-  padding: 0px 2px;
-  margin: 3px 0px;
+  margin-bottom: 2px;
+}
+
+.menuList {
+  font-size: 10px;
+  color: #333;
+}
+
+.tagLabel {
+  font-size: 10px;
+  color: #666;
+  margin-right: 4px;
+}
+
+.moodTag {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.featureTag {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
 }
 
 .menus {

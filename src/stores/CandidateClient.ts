@@ -7,16 +7,19 @@ import { useRestaurantStore } from './RestaurantStore';
 type CandidateActionType = 'ADD_PLACE' | 'REMOVE_PLACE' | 'ADD_VOTE' | 'REMOVE_VOTE';
 
 interface CandidatePlaceResponse {
-  id: number;
-  name?: string | null;
+  placeId: number;
+  placeName?: string | null;
   kakaoUrl?: string | null;
-  lat?: number | null;
-  lng?: number | null;
+  x?: string | null;
+  y?: string | null;  
   address?: string | null;
   roadAddress?: string | null;
   phone?: string | null;
-  aiSummary?: string | null;
-  categoryName?: string | null;
+  categoryDetail?: string | null;
+  menu?: string[] | null;
+  mood?: string[] | null;
+  feature?: string[] | null;
+  purpose?: string[] | null;
 }
 
 interface CandidateMessageResponseDto {
@@ -26,20 +29,23 @@ interface CandidateMessageResponseDto {
   voteCount: number;
 }
 
-function placeToRestaurant(p: CandidatePlaceResponse): RestaurantWithStatus {
+function candidateToRestaurant(p: CandidatePlaceResponse): RestaurantWithStatus {
   return {
-    placeId: p.id,
-    name: p.name ?? `place #${p.id}`,
-    category: p.categoryName ?? '',
+    placeId: p.placeId,
+    name: p.placeName ?? `place #${p.placeId}`,
+    category: p.categoryDetail ?? '',
     phone: p.phone ?? undefined,
     location: {
-      lat: typeof p.lat === 'number' ? p.lat : Number.NaN,
-      lng: typeof p.lng === 'number' ? p.lng : Number.NaN,
+      lat: typeof p.y === 'string' ? parseFloat(p.y) : Number.NaN,
+      lng: typeof p.x === 'string' ? parseFloat(p.x) : Number.NaN,
       address: p.address ?? undefined,
       roadAddress: p.roadAddress ?? undefined,
     },
     place_url: p.kakaoUrl ?? undefined,
-    summary: p.aiSummary ?? undefined,
+    menu: p.menu ?? undefined,
+    mood: p.mood ?? undefined,
+    feature: p.feature ?? undefined,
+    purpose: p.purpose ?? undefined,
     isFavorite: false,
     isCandidate: true,
     isVoted: false,
@@ -122,7 +128,7 @@ class CandidateClientSingleton {
         if (!Array.isArray(arr)) return;
         const currentUserId = Number(localStorage.getItem('userId') || '');
         const items: RestaurantWithStatus[] = arr.map((it) => {
-          const base = placeToRestaurant(it.place);
+          const base = candidateToRestaurant(it.place);
           return {
             ...base,
             isCandidate: true,

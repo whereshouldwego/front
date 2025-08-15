@@ -23,8 +23,12 @@ interface Props {
 }
 
 const FavoritePanel: React.FC<Props> = ({ userId }) => {
-  const uid = userId ?? 1; // TODO: 실제 로그인 연동 시 교체
+  console.log('[DEBUG] FavoritePanel 마운트됨, userId:', userId);
+  
+  const uid = userId ?? 1;
   const { items, loading, error } = useFavorites(uid);
+  
+  console.log('[DEBUG] FavoritePanel - useFavorites 결과:', { items, loading, error });
 
   return (
     <div className={styles.panelContent}>

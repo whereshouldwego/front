@@ -62,42 +62,47 @@ export interface Restaurant {
     roadAddress?: string | null;
   };
   phone?: string;
-  summary?: string;
   place_url?: string;
-  reviewCount?: number;
-  // isFavorite?: boolean;
-  // isCandidate?: boolean;
+  menu?: string[];              // 메뉴 목록
+  mood?: string[];              // 분위기 태그
+  feature?: string[];           // 특징 태그
+  purpose?: string[];           // 목적 태그
 }
 
-// ✅ 백엔드 place 상세 응답 (LocalDetail = 서버 스키마)
-export interface LocalDetail {
-  id: number;                    // = placeId
-  name?: string | null;
-  categoryName?: string | null;
-  phone?: string | null;
-  address?: string | null;
-  roadAddress?: string | null;
-  lat?: number | null;           // 서버가 줄 수도/안 줄 수도 → optional
-  lng?: number | null;
-  aiSummary?: string | null;
-}
 
-export function localDetailToRestaurant(d: LocalDetail): Restaurant {
-  return {
-    placeId: d.id,
-    name: d.name ?? `place #${d.id}`,
-    category: d.categoryName ?? '',
-    phone: d.phone ?? undefined,
+export function placeDetailToRestaurant(d: PlaceDetail): Restaurant {
+  console.log('[DEBUG] placeDetailToRestaurant 입력:', {
+    placeId: d.placeId,
+    placeName: d.placeName,
+    menu: d.menu,
+    mood: d.mood,
+    feature: d.feature,
+    purpose: d.purpose,
+    menuType: typeof d.menu,
+    menuIsArray: Array.isArray(d.menu)
+  });
+  
+  const result = {
+    placeId: d.placeId,
+    name: d.placeName,
+    category: d.categoryDetail,
+    phone: d.phone,
     location: {
-      lat: typeof d.lat === 'number' ? d.lat : Number.NaN,   // 좌표 미존재면 NaN (마커 만들 때 필터)
-      lng: typeof d.lng === 'number' ? d.lng : Number.NaN,
-      address: d.address ?? undefined,
-      roadAddress: d.roadAddress ?? undefined,
+      lat: parseFloat(d.y),
+      lng: parseFloat(d.x),
+      address: d.address,
+      roadAddress: d.roadAddress,
     },
-    summary: d.aiSummary ?? undefined,
+    place_url: d.kakaoUrl,
+    menu: d.menu,
+    mood: d.mood,
+    feature: d.feature,
+    purpose: d.purpose
   };
+  
+  console.log('[DEBUG] placeDetailToRestaurant 출력:', result);
+  return result;
 }
-
 // ===== 카카오맵 관련 타입들 =====
 // 가장 필요한 필드만 발췌
 export interface KakaoDocument {
@@ -195,16 +200,21 @@ export interface StartPointInfo {
   startLocation: string;
 }
 
-// 레스토랑 관련 타입
+// 레스토랑 관련 타입 (백엔드 API 응답 구조)
 export interface PlaceDetail {
-  id: number;
-  name: string;
+  placeId: number;
+  placeName: string;
+  kakaoUrl: string;
+  x: string;                     // 경도 (문자열)
+  y: string;                     // 위도 (문자열)
   address: string;
   roadAddress: string;
   phone: string;
-  aiSummary: string;
-  categoryName: string;
-  place_url: string;
+  categoryDetail: string;
+  menu: string[];
+  mood: string[];
+  feature: string[];
+  purpose: string[];
 }
 
 // Chat History
