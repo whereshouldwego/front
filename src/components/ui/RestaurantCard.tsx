@@ -13,7 +13,6 @@
 import React from 'react';
 import type { Restaurant, RestaurantWithStatus } from '../../types';
 import styles from './RestaurantCard.module.css';
-import { parseAiSummary, pickFeatureTags } from '../../utils/aiSummary';
 
 interface Props {
   data: Restaurant | RestaurantWithStatus;
@@ -29,9 +28,9 @@ const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
     return parts.length >= 2 ? parts[1] : category;
   };
 
-  const ai = parseAiSummary(data.summary);
-  const featureTags = pickFeatureTags(ai?.feature);
-  const menuPreview = (ai?.menu ?? []).slice(0, 2); // 메뉴 2개
+  const featureTags = data.feature ? data.feature.slice(0, 3) : []; // 특징 태그 3개까지
+  const menuPreview = data.menu ? data.menu.slice(0, 2) : []; // 메뉴 2개까지
+  const moodTags = data.mood ? data.mood.slice(0, 2) : []; // 분위기 2개까지
 
   return (
     <div className={`${styles.restaurantCard} ${className || ''}`}>
@@ -59,28 +58,32 @@ const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
           </div>
         )}
         
-      {/* ✅ 해시태그(특정 feature만) + 메뉴 2개 */}
-      {(featureTags.length > 0 || menuPreview.length > 0) && (
-        <div className={styles.hashAndMenu}>
-          {/* feature 해시태그 */}
-          {/* 메뉴 2개 */}
-          {menuPreview.length > 0 && (
-            <div className={styles.menuPreview}>
-            <div style={{ fontSize: '11px', color: '#666' }}>
-              <span className={styles.menuTitle}>주요 메뉴</span>
-            </div>
+        {menuPreview.length > 0 && (
+          <div className={styles.menuPreview}>
+            <div className={styles.menuTitle}>주요 메뉴</div>
+            <div className={styles.menuList}>
               {menuPreview.join(', ')}
             </div>
-          )}
-      {featureTags.length > 0 && (
-        <div className={styles.tags}>
-          {featureTags.map((tag, idx) => (
-            <span key={idx} className={styles.tag}>{tag}</span>
-          ))}
-        </div>
-      )}
-     </div>
-      )}
+          </div>
+        )}
+        
+        {moodTags.length > 0 && (
+          <div className={styles.tags}>
+            <span className={styles.tagLabel}>분위기:</span>
+            {moodTags.map((tag, idx) => (
+              <span key={idx} className={`${styles.tag} ${styles.moodTag}`}>{tag}</span>
+            ))}
+          </div>
+        )}
+        
+        {featureTags.length > 0 && (
+          <div className={styles.tags}>
+            <span className={styles.tagLabel}>특징:</span>
+            {featureTags.map((tag, idx) => (
+              <span key={idx} className={`${styles.tag} ${styles.featureTag}`}>{tag}</span>
+            ))}
+          </div>
+        )}
         {data.place_url && (
           <div className={styles.placeUrl}>
             <a href={data.place_url} target="_blank" rel="noopener noreferrer">

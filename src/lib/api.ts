@@ -70,9 +70,12 @@ async function apiRequest<T>(
   try {
     const url = `${API_BASE_URL}${endpoint}`;
     console.log(`[API REQ] ${options.method || 'GET'} ${url}`, options.body ? JSON.parse(options.body as string) : '');
+    const accessToken = localStorage.getItem('accessToken');
+    
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
         ...options.headers,
       },
       ...options,
@@ -82,10 +85,16 @@ async function apiRequest<T>(
     console.log(`[API RES] ${response.status} ${url}`, data);
 
     if (!response.ok) {
-      const message =
-        (data as any)?.error?.message ||
-        (data as any)?.message ||
-        `API 요청 실패 (${response.status})`;
+      let message: string;
+      if (response.status === 403 || response.status === 405) {
+        message = '로그인 후 이용해주세요.';
+      } else {
+        message = 
+          (data as any)?.error?.message ||
+          (data as any)?.message ||
+          `API 요청 실패 (${response.status})`;
+      }
+      
       return {
         success: false,
         error: {
@@ -255,7 +264,46 @@ export const kakaoMapAPI = {
 export const placeAPI = {
   /** GET /api/places/{placeId} */
   getPlaceById: async (placeId: number) => {
-    return apiRequest<PlaceDetail>(`/api/places/${placeId}`, { method: 'GET' });
+    console.log('[DEBUG] placeAPI.getPlaceById 요청:', placeId);
+    const result = await apiRequest<PlaceDetail>(`/api/places/${placeId}`, { method: 'GET' });
+    
+    console.log('[DEBUG] ===== 백엔드 API 원본 응답 =====');
+    console.log('[DEBUG] 응답 성공 여부:', result.success);
+    
+    if (result.success) {
+      console.log('[DEBUG] 백엔드 데이터 전체 구조:');
+      console.log(JSON.stringify(result.data, null, 2));  // 전체 구조를 보기 좋게 출력
+      
+      console.log('[DEBUG] 백엔드 각 필드별 상세:');
+      console.table({
+        'placeId': { value: result.data.placeId, type: typeof result.data.placeId },
+        'placeName': { value: result.data.placeName, type: typeof result.data.placeName },
+        'kakaoUrl': { value: result.data.kakaoUrl, type: typeof result.data.kakaoUrl },
+        'x': { value: result.data.x, type: typeof result.data.x },
+        'y': { value: result.data.y, type: typeof result.data.y },
+        'address': { value: result.data.address, type: typeof result.data.address },
+        'roadAddress': { value: result.data.roadAddress, type: typeof result.data.roadAddress },
+        'phone': { value: result.data.phone, type: typeof result.data.phone },
+        'categoryDetail': { value: result.data.categoryDetail, type: typeof result.data.categoryDetail },
+        'menu': { value: result.data.menu, type: typeof result.data.menu, isArray: Array.isArray(result.data.menu), length: Array.isArray(result.data.menu) ? result.data.menu.length : 'N/A' },
+        'mood': { value: result.data.mood, type: typeof result.data.mood, isArray: Array.isArray(result.data.mood), length: Array.isArray(result.data.mood) ? result.data.mood.length : 'N/A' },
+        'feature': { value: result.data.feature, type: typeof result.data.feature, isArray: Array.isArray(result.data.feature), length: Array.isArray(result.data.feature) ? result.data.feature.length : 'N/A' },
+        'purpose': { value: result.data.purpose, type: typeof result.data.purpose, isArray: Array.isArray(result.data.purpose), length: Array.isArray(result.data.purpose) ? result.data.purpose.length : 'N/A' }
+      });
+      
+      console.log('[DEBUG] 배열 필드 내용:');
+      if (result.data.menu) console.log('  menu:', result.data.menu);
+      if (result.data.mood) console.log('  mood:', result.data.mood);
+      if (result.data.feature) console.log('  feature:', result.data.feature);
+      if (result.data.purpose) console.log('  purpose:', result.data.purpose);
+      
+    } else {
+      console.log('[DEBUG] 백엔드 API 에러:');
+      console.log(JSON.stringify(result.error, null, 2));
+    }
+    
+    console.log('[DEBUG] ===== 백엔드 API 응답 끝 =====');
+    return result;
   },
 
   // 백엔드 ensure-batch 요청
@@ -327,7 +375,7 @@ export const integratedSearchAPI = {
       let excluded = new Set<number>();
       if (opts?.roomCode) {
         const hist = await candidateAPI.history(opts.roomCode);
-        if (hist.success) excluded = new Set(hist.data.map(i => Number(i.place.id)));
+        if (hist.success) excluded = new Set(hist.data.map(i => Number(i.place.placeId)));
       }
 
       // 2) 카카오 검색
@@ -377,23 +425,42 @@ export const integratedSearchAPI = {
           place_url: d.place_url,
         };
         const detail = await placeAPI.getPlaceById(base.placeId);
+        console.log('[DEBUG] searchAndEnrich - 상세 보강 시작:', {
+          baseId: base.placeId,
+          baseName: base.name,
+          detailSuccess: detail.success
+        });        
         if (detail.success) {
           const dd = detail.data;
-          enriched.push({
+          console.log('[DEBUG] searchAndEnrich - 상세 데이터:', {
+            placeName: dd.placeName,
+            menu: dd.menu,
+            mood: dd.mood,
+            feature: dd.feature,
+            purpose: dd.purpose
+          });
+          
+          const enrichedItem = {
             ...base,
-            name: dd.name || base.name,
-            category: dd.categoryName || base.category,
+            name: dd.placeName || base.name,
+            category: dd.categoryDetail || base.category,    // 백엔드 없으면 카카오 카테고리
             phone: dd.phone || base.phone,
             location: {
-              ...base.location,
-              address: dd.address ?? base.location.address,
-              roadAddress: dd.roadAddress ?? base.location.roadAddress,
+              lat: dd.y ? parseFloat(dd.y) : base.location.lat,
+              lng: dd.x ? parseFloat(dd.x) : base.location.lng,
+              address: dd.address || base.location.address,
+              roadAddress: dd.roadAddress || base.location.roadAddress,
             },
-            place_url: dd.place_url ?? base.place_url,
-            summary: dd.aiSummary,
-            description: dd.aiSummary ?? undefined,
-          });
+            place_url: dd.kakaoUrl || base.place_url,
+            menu: dd.menu || [],
+            mood: dd.mood || [],
+            feature: dd.feature || [],
+            purpose: dd.purpose || [],
+          };          
+          console.log('[DEBUG] searchAndEnrich - 최종 enriched 아이템:', enrichedItem);          
+          enriched.push(enrichedItem);
         } else {
+          console.log('[DEBUG] searchAndEnrich - 상세 정보 실패, base만 사용');
           enriched.push(base);
         }
       }
@@ -411,7 +478,7 @@ export const integratedSearchAPI = {
       let excluded = new Set<number>();
       if (opts?.roomCode) {
         const hist = await candidateAPI.history(opts.roomCode);
-        if (hist.success) excluded = new Set(hist.data.map(i => Number(i.place.id)));
+        if (hist.success) excluded = new Set(hist.data.map(i => Number(i.place.placeId)));
       }
 
       const kakao = await kakaoMapAPI.searchByCategoryWithParams({
@@ -459,16 +526,20 @@ export const integratedSearchAPI = {
         const detail = await placeAPI.getPlaceById(base.placeId);
         enriched.push(detail.success ? {
           ...base,
-          name: detail.data.name || base.name,
-          category: detail.data.categoryName || base.category,
+          name: detail.data.placeName || base.name,
+          category: detail.data.categoryDetail || base.category,  // 백엔드 없으면 카카오
           phone: detail.data.phone || base.phone,
           location: {
-            ...base.location,
-            address: detail.data.address ?? base.location.address,
-            roadAddress: detail.data.roadAddress ?? base.location.roadAddress,
+            lat: detail.data.y ? parseFloat(detail.data.y) : base.location.lat,
+            lng: detail.data.x ? parseFloat(detail.data.x) : base.location.lng,
+            address: detail.data.address || base.location.address,
+            roadAddress: detail.data.roadAddress || base.location.roadAddress,
           },
-          summary: detail.data.aiSummary,
-          description: detail.data.aiSummary ?? undefined,
+          place_url: detail.data.kakaoUrl || base.place_url,
+          menu: detail.data.menu || [],
+          mood: detail.data.mood || [],
+          feature: detail.data.feature || [],
+          purpose: detail.data.purpose || [],
         } : base);
       }
 
@@ -489,7 +560,6 @@ export const favoriteAPI = {
       body: JSON.stringify(body),
     });
   },
-
   /** GET /api/favorites/{userId} */
   listByUser: async (userId: number): Promise<ApiResponse<FavoriteInfo[]>> => {
     return apiRequest<FavoriteInfo[]>(`/api/favorites/${userId}`, { method: 'GET' });

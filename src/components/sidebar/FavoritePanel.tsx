@@ -23,8 +23,12 @@ interface Props {
 }
 
 const FavoritePanel: React.FC<Props> = ({ userId }) => {
-  const uid = userId ?? 1; // TODO: 실제 로그인 연동 시 교체
+  console.log('[DEBUG] FavoritePanel 마운트됨, userId:', userId);
+  
+  const uid = userId ?? 1;
   const { items, loading, error } = useFavorites(uid);
+  
+  console.log('[DEBUG] FavoritePanel - useFavorites 결과:', { items, loading, error });
 
   return (
     <div className={styles.panelContent}>
@@ -50,10 +54,25 @@ const FavoritePanel: React.FC<Props> = ({ userId }) => {
         {/* 에러 상태 */}
         {error && (
           <div className={styles.errorState}>
-            <p>{error}</p>
+            {error.includes('로그인 후 이용해주세요') ? (
+              <div className={styles.loginContainer}>
+                <p className={styles.loginMessage}>로그인 후 이용해주세요</p>
+                <button 
+                  className={styles.loginButton}
+                  onClick={() => {
+                    // 로그인 모달 열기 또는 로그인 페이지로 이동
+                    // 예: openKakaoLoginModal() 또는 navigate('/login')
+                    console.log('로그인 버튼 클릭'); // 임시로 콘솔 출력
+                  }}
+                >
+                  로그인하기
+                </button>
+              </div>
+            ) : (
+              <p>{error}</p>
+            )}
           </div>
         )}
-
         {/* 찜한 맛집 결과 */}
         {!loading && !error && items.length > 0 && (
           <div className={styles.resultsContainer}>

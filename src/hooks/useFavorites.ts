@@ -1,8 +1,8 @@
 // src/hooks/useFavorites.ts
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { favoriteAPI, placeAPI } from '../lib/api';
-import type { LocalDetail, RestaurantWithStatus } from '../types';
-import { localDetailToRestaurant } from '../utils/location';
+import type { RestaurantWithStatus } from '../types';
+import { placeDetailToRestaurant } from '../utils/location';
 import { useRestaurantStore } from '../stores/RestaurantStore';
 
 /**
@@ -31,7 +31,7 @@ export function useFavorites(userId?: number) {
         res.data.map(async (f) => {
           const d = await placeAPI.getPlaceById(f.placeId);
           if (d.success) {
-            const restaurant = localDetailToRestaurant(d.data as LocalDetail);
+            const restaurant = placeDetailToRestaurant(d.data);
           // 상세 실패 시 최소 보정
             return {
               ...restaurant,
@@ -47,7 +47,10 @@ export function useFavorites(userId?: number) {
       const validItems = list.filter((item): item is RestaurantWithStatus => item !== null);
       setItems(validItems);
     } catch (e: any) {
-      setError(e?.message || '찜 목록을 불러오는 중 오류가 발생했습니다.');
+      const errorMessage = e?.message?.includes('로그인 후 이용해주세요') 
+      ? '로그인 후 이용해주세요.'
+      : (e?.message || '찜 목록을 불러오는 중 오류가 발생했습니다.');
+      setError(errorMessage);
       setItems([]);
     } finally {
       setLoading(false);

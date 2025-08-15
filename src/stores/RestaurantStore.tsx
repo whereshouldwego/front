@@ -29,7 +29,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
         hydrateCandidates: async (roomCode: string) => {
           const res = await candidateAPI.history(roomCode);
           if (res.success) {
-            const ids = res.data.map(item => Number(item.place.id));
+            const ids = res.data.map(item => Number(item.place.placeId));
             set({ candidates: new Set(ids) });
           }
         },
@@ -44,7 +44,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
          * @param restaurantId placeId 문자열(카카오 id 기반)
          * @param userId 서버 요청에 필요
          */
-        toggleFavorite: async (placeId: number, userId: number) => {
+        toggleFavorite: async (placeId: number) => {
           const { favorites, favoriteIndex } = get();
           const isOn = favorites.has(placeId);
 
@@ -58,14 +58,15 @@ export const useRestaurantStore = create<RestaurantStore>()(
             set({ favorites: optimistic });
 
             try {
-              const res = await favoriteAPI.create({ userId, placeId });
+              const res = await favoriteAPI.create({ placeId }); // userId 제거
               if (!res.success) throw new Error(res.error.message);
               set((s) => ({
                 favoriteIndex: { ...s.favoriteIndex, [placeId]: res.data.favoriteId },
               }));
             } catch (e) {
               set({ favorites: prevFavorites, favoriteIndex: prevIndex });
-              throw e;
+              alert('찜 처리 중 오류가 발생했습니다.');
+              throw e;        
             }
           } else {
             const optimistic = new Set(favorites);

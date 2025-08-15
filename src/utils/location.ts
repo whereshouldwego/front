@@ -1,5 +1,5 @@
 // src/utils/location.ts
-import type { LocalDetail, Restaurant } from '../types';
+import type { PlaceDetail, Restaurant } from '../types';
 
 export async function getStartLocation(): Promise<{ lat: number; lng: number }> {
     return new Promise((resolve, reject) => {
@@ -15,20 +15,24 @@ export async function getStartLocation(): Promise<{ lat: number; lng: number }> 
     });
   }
   
-  export function localDetailToRestaurant(d: LocalDetail): Restaurant {
+  export function placeDetailToRestaurant(d: PlaceDetail): Restaurant {
+    console.log('[DEBUG] placeDetailToRestaurant 입력:', d);
     return {
-      placeId: d.id,
-      name: d.name ?? `place #${d.id}`,
-      category: d.categoryName ?? '',      // ← 필수 string 보정
-      phone: d.phone ?? undefined,
+      placeId: d.placeId,
+      name: d.placeName,
+      category: d.categoryDetail,
+      phone: d.phone,
       location: {
-        lat: typeof d.lat === 'number' ? d.lat : Number.NaN, // ← number 보정
-        lng: typeof d.lng === 'number' ? d.lng : Number.NaN, // ← number 보정
-        address: d.address ?? undefined,
-        roadAddress: d.roadAddress ?? undefined,
+        lat: parseFloat(d.y),
+        lng: parseFloat(d.x),
+        address: d.address,
+        roadAddress: d.roadAddress,
       },
-      summary: d.aiSummary ?? undefined,
-      description: d.aiSummary ?? undefined,
+      place_url: d.kakaoUrl,
+      menu: d.menu,
+      mood: d.mood,
+      feature: d.feature,
+      purpose: d.purpose,
     };
   }
   

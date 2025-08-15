@@ -35,10 +35,13 @@ const ActionButtons: React.FC<Props> = ({
 
   const handleFavoriteToggle = async () => {
     try {
-      await toggleFavorite(placeId, userId);
+      await toggleFavorite(placeId);
       onStateChange?.();
     } catch (error: any) {
-      alert(error?.message ?? '찜 처리 중 오류가 발생했습니다.');
+      const errorMessage = error?.message?.includes('로그인 후 이용해주세요')
+      ? '로그인 후 이용해주세요.'
+      : (error?.message ?? '찜 처리 중 오류가 발생했습니다.');
+    alert(errorMessage);
     }
   };
 
@@ -126,7 +129,7 @@ const ActionButtons: React.FC<Props> = ({
         >
           {isInCandidatePanel 
             ? '🗑️'
-            : (isCandidate(placeId) ? '✅' : '☑️')
+            : (isCandidate(placeId) ? '🗑️' : '✅')
           }
         </button>
       )}
