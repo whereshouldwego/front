@@ -133,7 +133,8 @@ export const ERROR_MESSAGES = {
   SEARCH_FAILED: '검색 중 오류가 발생했습니다.',
   API_KEY_MISSING: '카카오 API 키가 설정되지 않았습니다.',
   NETWORK_ERROR: '네트워크 오류가 발생했습니다.',
-  NO_RESULTS: '검색 결과가 없습니다.'
+  NO_RESULTS: '검색 결과가 없습니다.',
+  LOGIN_REQUIRED: '로그인 후 이용해주세요.',
 } as const;
 
 // 로딩 메시지

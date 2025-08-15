@@ -70,9 +70,12 @@ async function apiRequest<T>(
   try {
     const url = `${API_BASE_URL}${endpoint}`;
     console.log(`[API REQ] ${options.method || 'GET'} ${url}`, options.body ? JSON.parse(options.body as string) : '');
+    const accessToken = localStorage.getItem('accessToken');
+    
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
         ...options.headers,
       },
       ...options,
@@ -82,10 +85,16 @@ async function apiRequest<T>(
     console.log(`[API RES] ${response.status} ${url}`, data);
 
     if (!response.ok) {
-      const message =
-        (data as any)?.error?.message ||
-        (data as any)?.message ||
-        `API 요청 실패 (${response.status})`;
+      let message: string;
+      if (response.status === 403 || response.status === 405) {
+        message = '로그인 후 이용해주세요.';
+      } else {
+        message = 
+          (data as any)?.error?.message ||
+          (data as any)?.message ||
+          `API 요청 실패 (${response.status})`;
+      }
+      
       return {
         success: false,
         error: {
@@ -489,7 +498,6 @@ export const favoriteAPI = {
       body: JSON.stringify(body),
     });
   },
-
   /** GET /api/favorites/{userId} */
   listByUser: async (userId: number): Promise<ApiResponse<FavoriteInfo[]>> => {
     return apiRequest<FavoriteInfo[]>(`/api/favorites/${userId}`, { method: 'GET' });

@@ -47,7 +47,10 @@ export function useFavorites(userId?: number) {
       const validItems = list.filter((item): item is RestaurantWithStatus => item !== null);
       setItems(validItems);
     } catch (e: any) {
-      setError(e?.message || '찜 목록을 불러오는 중 오류가 발생했습니다.');
+      const errorMessage = e?.message?.includes('로그인 후 이용해주세요') 
+      ? '로그인 후 이용해주세요.'
+      : (e?.message || '찜 목록을 불러오는 중 오류가 발생했습니다.');
+      setError(errorMessage);
       setItems([]);
     } finally {
       setLoading(false);

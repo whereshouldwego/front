@@ -241,7 +241,6 @@ export interface RecommendResponse {
 
 // 찜 요청 타입
 export interface FavoriteCreateBody {
-  userId: number;
   placeId: number;
 }
 
@@ -465,7 +464,7 @@ export interface RestaurantStore {
   hydrateFavorites: (userId: number) => Promise<void>;
   hydrateCandidates: (roomCode: string) => Promise<void>;
   hydrateVotes: (roomCode: string) => Promise<void>;
-  toggleFavorite: (placeId: number, userId: number) => Promise<void>;
+  toggleFavorite: (placeId: number) => Promise<void>;
   toggleCandidate: (placeId: number) => void;
   toggleVote: (placeId: number) => void;
   voteOnce: (placeId: number) => void;
