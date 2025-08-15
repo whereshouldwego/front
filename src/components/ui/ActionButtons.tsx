@@ -9,7 +9,7 @@ interface Props {
   showFavoriteButton?: boolean;
   showVoteButton?: boolean;
   showCandidateButton?: boolean;
-  onStateChange?: () => void;
+  onStateChange?: (placeId?: number) => void;
   // 후보 패널에서 사용될 때 버튼 의미 변경
   isInCandidatePanel?: boolean;
 }
@@ -59,16 +59,16 @@ const ActionButtons: React.FC<Props> = ({
   const handleCandidateToggle = () => {
     const userIdNum = Number(userId);
     const currentlyOn = isCandidate(placeId);
-    // 낙관적 표시(아이콘 토글용) — 서버 브로드캐스트가 곧 동기화함
     toggleCandidate(placeId);
-    // STOMP로 서버에 통지 → 서버가 전체 후보 목록을 브로드캐스트함
+    // 모든 패널에서 항상 onStateChange 호출
+    if (onStateChange) {
+      onStateChange(placeId);
+    }
     CandidateClient.sendAction({
       placeId,
       userId: Number.isFinite(userIdNum) ? userIdNum : undefined,
       actionType: currentlyOn ? 'REMOVE_PLACE' : 'ADD_PLACE',
     });
-    // 후보 관련 액션은 실시간 동기화되므로 onStateChange 호출하지 않음
-    // onStateChange?.();
   };
 
   return (

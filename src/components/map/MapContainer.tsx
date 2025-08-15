@@ -21,12 +21,12 @@ import type { MapMarker as MapMarkerType, MapEventHandlers, MapCenter } from '..
 import { colorFromString } from '../../utils/color';
 import { useWebSocket } from '../../stores/WebSocketContext';
 
-/* ✅ (추가) 찜 구분 플래그 허용 */
-type MarkerWithFavorite = MapMarkerType & { isFavorite?: boolean };
+/* ✅ [변경] 찜/후보 플래그 모두 허용 */
+type MarkerWithFlags = MapMarkerType & { isFavorite?: boolean; isCandidate?: boolean };
 
 // MapContainer 컴포넌트 props 인터페이스
 interface MapContainerProps {
-  markers?: MarkerWithFavorite[];
+  markers?: MarkerWithFlags[]; // ✅ 후보 플래그 반영
   eventHandlers?: MapEventHandlers;
   className?: string;
   onMapMoved?: (center: MapCenter) => void;
@@ -69,12 +69,10 @@ const MapContainer: React.FC<MapContainerProps> = ({
     if (String(selfId) === String(userId)) {
       return localStorage.getItem('userNickname') || '나';
     }
-    // 다른 사용자의 경우 WebSocket에서 받은 닉네임이 있으면 사용
     const user = presentUsers.find(u => u.id === userId);
     if (user && user.name) {
       return user.name;
     }
-    // 없으면 userId 일부 사용
     return userId.slice(0, 6);
   };
 
@@ -167,15 +165,31 @@ const MapContainer: React.FC<MapContainerProps> = ({
     if (mapRef.current) { (mapRef.current as any).getCurrentCenter = getCurrentCenter; }
   }, [currentCenter]);
 
-  /* ✅ (변경) 선택/찜 여부에 따라 다른 마커 SVG 생성
+  /* ✅ [변경] 선택/찜/후보 여부에 따라 다른 마커 SVG 생성
         - 선택: 60px / 기본: 40px
-        - 찜: 주황 + 별 / 일반: 파랑 + 흰 원 */
-  const getMarkerImage = (isSelected: boolean, isFavorite?: boolean) => {
+        - 후보: 초록 + 체크박스(☑)
+        - 찜: 주황 + 별(⭐)
+        - 일반: 파랑 + 흰 원
+     ※ 스타일/레이어 우선순위는 렌더링 시 zIndex에서 처리(선택 > 후보 > 찜 > 일반)
+  */
+  const getMarkerImage = (isSelected: boolean, isFavorite?: boolean, isCandidate?: boolean) => { // ✅ [변경]
     const size = isSelected ? 60 : 40;
-    const fillColor = isFavorite ? '#f59e0b' : '#3b82f6';
-    const inner = isFavorite
-      ? '<path d="M24 13l3.09 6.26 6.91 1.01-5 4.87 1.18 6.88L24 27.77l-6.18 3.25 1.18-6.88-5-4.87 6.91-1.01L24 13z" fill="#fff"/>'
-      : '<circle cx="24" cy="20" r="6" fill="#fff"/>';
+
+    // ✅ 후보 우선 색상
+    const fillColor = isCandidate
+      ? '#10b981' // 초록(후보)
+      : (isFavorite ? '#f59e0b' : '#3b82f6'); // 주황(찜) / 파랑(일반)
+
+    // ✅ 내부 아이콘도 후보 우선
+    const inner = isCandidate
+      ? `
+          <rect x="18" y="14" width="12" height="12" rx="2" fill="#fff"/>
+          <path d="M20.5 20.5 l3 3 l4.5-6" stroke="${fillColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        `
+      : (isFavorite
+        ? '<path d="M24 13l3.09 6.26 6.91 1.01-5 4.87 1.18 6.88L24 27.77l-6.18 3.25 1.18-6.88-5-4.87 6.91-1.01L24 13z" fill="#fff"/>'
+        : '<circle cx="24" cy="20" r="6" fill="#fff"/>');
+
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">
         <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -232,13 +246,14 @@ const MapContainer: React.FC<MapContainerProps> = ({
         {/* 마커 렌더링 */}
         {markers.map((m) => {
           const isSelected = selectedMarkerId === m.id;
-          const isFavorite = !!m.isFavorite; // ✅ 찜 여부
+          const isFavorite = !!m.isFavorite;      // ✅ 찜 여부
+          const isCandidate = !!(m as any).isCandidate; // ✅ 후보 여부
           return (
             <MapMarker
               key={m.id}
               position={{ lat: m.position.lat, lng: m.position.lng }}
-              image={getMarkerImage(isSelected, isFavorite)} // ✅ (변경)
-              zIndex={isSelected ? 100 : (isFavorite ? 50 : 10)} // ✅ 찜은 일반보다 위
+              image={getMarkerImage(isSelected, isFavorite, isCandidate)} // ✅ 후보 아이콘 반영
+              zIndex={isSelected ? 100 : (isCandidate ? 70 : (isFavorite ? 50 : 10))} // ✅ 선택 > 후보 > 찜 > 일반
               onClick={() => handleMarkerClick(m.id)}
               onMouseOver={() => setHoveredMarkerId(m.id)}
               onMouseOut={() => setHoveredMarkerId((prev) => (prev === m.id ? null : prev))}
@@ -276,9 +291,8 @@ const MapContainer: React.FC<MapContainerProps> = ({
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'flex-start',
-              transform: 'translate(0, 0)', // 정확한 위치에 맞추기 위해
+              transform: 'translate(0, 0)',
             }}>
-              {/* 커서 포인터 */}
               <svg 
                 width="30" 
                 height="30" 
@@ -296,18 +310,11 @@ const MapContainer: React.FC<MapContainerProps> = ({
               
               {/* 사용자 닉네임 - 커서 아래에 표시 */}
               <div style={{ 
-                //background: 'rgba(0,0,0,0.8)', 
-                //color: '#fff', 
-                //padding: '3px 8px', 
-                //borderRadius: '12px', 
                 color: '#000', 
                 fontSize: '11px', 
                 fontWeight: '600', 
                 whiteSpace: 'nowrap',
                 marginLeft: '2px',
-                //border: '1px solid rgba(255,255,255,0.2)',
-                //boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                //backdropFilter: 'blur(4px)'
                 textShadow: '1px 1px 2px rgba(255,255,255,0.8), -1px -1px 2px rgba(255,255,255,0.8)'
               }}>
                 {getUserNickname(cp.id)}

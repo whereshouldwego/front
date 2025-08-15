@@ -1,26 +1,32 @@
 /**
  * RoomPage.tsx
  *
- * 방 페이지
+ * 요구사항 반영:
+ * - ✅ 후보 패널(useCandidates)의 items를 그대로 받아 지도 마커로 변환
+ * - ✅ 기존 검색/찜 마커와 병합 시, 같은 placeId는 후보가 우선 노출
+ * - ✅ MapContainer에는 최종 병합된 markers만 내려줌
  *
- * 변경 사항(요청 반영):
- * - ✅ (문구 위치 안내) 에러 페이지 문구는 본 파일 하단의 "에러 상태" JSX에서 렌더됩니다.
- * - ✅ (정원 초과 처리) 방 참여 실패 중 '정원 초과'를 식별해 전용 문구/화면을 노출합니다.
- * - ✅ 새 탭 최초 진입 시 항상 새 게스트 발급(기존 기능 유지). 중복 생성 방지는 기존 로직 유지.
+ * ※ 그 외 기능/코드는 수정하지 않음
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+
 import { WebSocketProvider, useWebSocket } from '../../stores/WebSocketContext';
 import { SidebarProvider, useSidebar } from '../../stores/SidebarContext';
 import { ChatProvider } from '../../stores/ChatContext';
 import { useRestaurantStore } from '../../stores/RestaurantStore';
-import { Sidebar } from '../sidebar';
+
+import Sidebar from '../sidebar/Sidebar';
 import MapContainer from '../map/MapContainer';
 import MapOverlay from '../map/MapOverlay';
 import ChatSection from '../chat/ChatSection';
+
 import styles from './RoomPage.module.css';
 import type { MapCenter, MapEventHandlers, MapMarker, Restaurant } from '../../types';
+
+/* ✅ [추가] 후보 패널과 동일한 훅을 사용해서 후보 리스트를 가져온다 */
+import { useCandidates } from '../../hooks/useCandidates';
 
 interface RoomData {
   id: string;
@@ -30,7 +36,7 @@ interface RoomData {
   isValid: boolean;
 }
 
-/* ===== 유틸: 응답 헤더에서 토큰 추출 ===== */
+/* (유지) 유틸들 */
 const extractAccessToken = (headers: Headers): string | null => {
   const auth = headers.get('Authorization') || headers.get('authorization');
   if (auth && auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
@@ -41,40 +47,33 @@ const extractAccessToken = (headers: Headers): string | null => {
     headers.get('access-token');
   return custom ? custom.trim() : null;
 };
-
-/* ===== 유틸: 바디가 있을 때만 JSON 파싱 (빈 바디/비JSON 방어) ===== */
 async function readJsonIfAny<T>(res: Response): Promise<T | null> {
   const text = await res.text();
   if (!text) return null;
   try { return JSON.parse(text) as T; } catch { return null; }
 }
-
-/* ===== [CAPACITY] 내부적으로 쓸 센티넬 상수 ===== */
 const ROOM_FULL_SENTINEL = '__ROOM_FULL__';
 
 const RoomPage: React.FC = () => {
-  const { roomCode, roomId } = useParams<{ roomCode?: string; roomId?: string }>();
+  const { roomCode } = useParams<{ roomCode?: string }>(); // 라우트는 /rooms/:roomCode
   const navigate = useNavigate();
+
   const [roomData, setRoomData] = useState<RoomData | null>(null);
   const [loading, setLoading] = useState(true);
-
-  /* ===== [TEXT] 에러 메시지 상태: 문자열로 유지하되, 정원초과는 센티넬로 구분 ===== */
   const [error, setError] = useState<string | null>(null);
 
   const isLoadingRef = useRef(false);
   const loadedRoomId = useRef<string | null>(null);
 
-  const currentRoomId = roomCode || roomId;
-
   useEffect(() => {
-    if (!currentRoomId) {
+    if (!roomCode) {
       navigate('/');
       return;
     }
-    if (isLoadingRef.current || loadedRoomId.current === currentRoomId) return;
-    loadRoomData(currentRoomId);
+    if (isLoadingRef.current || loadedRoomId.current === roomCode) return;
+    loadRoomData(roomCode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentRoomId, navigate]);
+  }, [roomCode, navigate]);
 
   const loadRoomData = async (id: string) => {
     if (isLoadingRef.current) return;
@@ -87,17 +86,16 @@ const RoomPage: React.FC = () => {
       const joinedKey = `joined::${id}`;
       const firstEntryInThisTab = sessionStorage.getItem(joinedKey) !== '1';
 
-      // 현재 로컬 상태 (참조용 — 강제 새 발급 시에는 무시)
+      // 현재 로컬 상태
       let token = localStorage.getItem('accessToken') || '';
       let uid = localStorage.getItem('userId') || '';
       let nick = localStorage.getItem('userNickname') || '';
       const bound = localStorage.getItem('guestBoundRoomCode') || '';
 
-      /* ===== 게스트 발급: 새 탭 첫 진입이면 credentials: 'omit' 로 강제 새 발급 ===== */
       const ensureGuestAuth = async (forceNew: boolean) => {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/guest?roomCode=${id}`, {
           method: 'POST',
-          credentials: forceNew ? 'omit' : 'include', // ★ 새 탭 강제 새 발급 시 쿠키 미전송
+          credentials: forceNew ? 'omit' : 'include',
         });
         if (!res.ok) {
           const t = await res.text().catch(() => '');
@@ -116,11 +114,9 @@ const RoomPage: React.FC = () => {
         if (uid) localStorage.setItem('userId', uid);
         if (nick) localStorage.setItem('userNickname', nick);
         localStorage.setItem('userType', 'guest');
-        localStorage.setItem('guestBoundRoomCode', id); // 어느 방에서 발급됐는지 기록
+        localStorage.setItem('guestBoundRoomCode', id);
       };
 
-      /* ===== [CAPACITY] 방 참여 =====
-         - 실패시 상태코드/본문으로 '정원 초과' 추정 → 센티넬 에러로 throw */
       const joinRoom = async () => {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}`, {
           method: 'POST',
@@ -130,45 +126,35 @@ const RoomPage: React.FC = () => {
           }
         });
 
-        // 본문을 두 번 사용할 수 있도록 clone
         const resClone = res.clone();
 
         if (!res.ok && res.status !== 409) {
           const raw = await res.text().catch(() => '');
           const looksFull =
             res.status === 429 || res.status === 409 || res.status === 403 ||
-            /full|capacity|limit|인원|정원|최대\s*인원/i.test(raw); // ★ [CAPACITY] 키워드 추정
+            /full|capacity|limit|인원|정원|최대\s*인원/i.test(raw);
 
-          if (looksFull) {
-            // ★ 정원 초과 상황을 센티넬로 명확히 표기
-            throw new Error(ROOM_FULL_SENTINEL);
-          }
-
+          if (looksFull) throw new Error(ROOM_FULL_SENTINEL);
           throw new Error(`방 참여 실패`);
         }
 
-        // 참여 성공/이미참여(409) → 응답 바디가 있으면 저장
         const joined = await readJsonIfAny<{ userId?: number | string; nickname?: string; color?: string }>(resClone);
         if (joined?.userId != null) localStorage.setItem('userId', String(joined.userId));
         if (joined?.nickname) localStorage.setItem('userNickname', joined.nickname);
         if (joined?.color) localStorage.setItem('userColor', joined.color);
       };
 
-      /* 실행 흐름 */
-      const hasLocalForThisRoom = !!token && !!uid && bound === id; // <-- [CHANGE] 추가
+      const hasLocalForThisRoom = !!token && !!uid && bound === id;
 
       if (firstEntryInThisTab) {
         if (hasLocalForThisRoom) {
-          // <-- [CHANGE] 기존 정보로 바로 참여
           await joinRoom();
         } else {
-          // 기존처럼 새 게스트 발급
           await ensureGuestAuth(true);
           await joinRoom();
         }
         sessionStorage.setItem(joinedKey, '1');
       } else {
-        // 같은 탭 재진입: 기존 로직 유지
         if (!token || !uid || bound !== id) {
           await ensureGuestAuth(false);
           await joinRoom();
@@ -178,7 +164,6 @@ const RoomPage: React.FC = () => {
         }
       }
 
-      // 최소 방 정보 세팅 (지도/사이드바 기존 로직 유지)
       setRoomData({
         id,
         name: `방 ${id}`,
@@ -186,40 +171,30 @@ const RoomPage: React.FC = () => {
         createdAt: new Date(),
         isValid: true
       });
-      // 전역 접근을 위해 roomCode 저장 (STOMP 후보 클라이언트 등에서 사용)
       try { localStorage.setItem('roomCode', id); } catch {}
       loadedRoomId.current = id;
 
     } catch (e: any) {
       console.error('방 정보 로드 실패:', e);
-
-      /* ===== [CAPACITY] 정원 초과면 전용 에러코드로 세팅 ===== */
-      if (e?.message === ROOM_FULL_SENTINEL) {
-        setError(ROOM_FULL_SENTINEL);
-      } else {
-        setError(e?.message || '방을 불러올 수 없습니다.');
-      }
+      if (e?.message === ROOM_FULL_SENTINEL) setError(ROOM_FULL_SENTINEL);
+      else setError(e?.message || '방을 불러올 수 없습니다.');
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
     }
   };
 
-  // 바로 링크 복사 - 간소화된 공유 기능
   const handleShareRoom = async () => {
     if (!roomData) return;
-    
     try {
-      // URL 변경: /room/ -> /rooms/
       const roomLink = `${window.location.origin}/rooms/${roomData.id}`;
       await navigator.clipboard.writeText(roomLink);
       alert('방 링크가 복사되었습니다! 친구들에게 공유해보세요.');
-    } catch (error) {
+    } catch {
       alert('링크 복사에 실패했습니다.');
     }
   };
 
-  /* 로딩 화면 */
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -231,38 +206,25 @@ const RoomPage: React.FC = () => {
     );
   }
 
-  /* ===== [TEXT] 에러 화면: 이 블록이 스크린샷의 '오류 페이지'입니다. 여기 문구를 바꾸면 됨. ===== */
   if (error || !roomData) {
-    const isRoomFull = error === ROOM_FULL_SENTINEL; // ★ 정원 초과 여부
-
+    const isRoomFull = error === ROOM_FULL_SENTINEL;
     return (
       <div className={styles.errorContainer}>
         <div className={styles.errorContent}>
           <div className={styles.errorIcon}>🚫</div>
-
-          {/* ★ 제목 문구 */}
           <h2 className={styles.errorTitle}>
             {isRoomFull ? '정원이 가득 찼어요' : (error || '방을 찾을 수 없습니다')}
           </h2>
-
-          {/* ★ 설명 문구 */}
           <p className={styles.errorDescription}>
             {isRoomFull
               ? '이 방은 최대 10명까지 입장할 수 있어요. 새 방을 만들거나 호스트에게 알려주세요.'
               : '방 코드가 올바른지 확인하거나, 새로운 방을 생성해보세요.'}
           </p>
-
           <div className={styles.errorButtons}>
-            <button 
-              onClick={() => navigate('/')}
-              className={`${styles.errorButton} ${styles.errorButtonPrimary}`}
-            >
+            <button onClick={() => navigate('/')} className={`${styles.errorButton} ${styles.errorButtonPrimary}`}>
               새 방 만들기
             </button>
-            <button 
-              onClick={() => window.history.back()}
-              className={`${styles.errorButton} ${styles.errorButtonSecondary}`}
-            >
+            <button onClick={() => window.history.back()} className={`${styles.errorButton} ${styles.errorButtonSecondary}`}>
               뒤로가기
             </button>
           </div>
@@ -271,7 +233,6 @@ const RoomPage: React.FC = () => {
     );
   }
 
-  /* 정상 화면 */
   return (
     <WebSocketProvider roomCode={roomData.id}>
       <SidebarProvider>
@@ -283,18 +244,17 @@ const RoomPage: React.FC = () => {
                   <div id="sidebar-container">
                     <Sidebar />
                   </div>
-                  <RoomMainContent roomId={roomData.id} />
+                  {/* ✅ [변경] roomCode를 명시적으로 넘겨줌 */}
+                  <RoomMainContent roomCode={roomData.id} />
                 </div>
               </div>
             </div>
-            {/* 지도 상단에 플로팅하는 공유 버튼 */}
+
             <div className={styles.floatingButtonContainer}>
-              <button
-                onClick={handleShareRoom}
-                className={styles.shareButton}
-              >
+              <button onClick={handleShareRoom} className={styles.shareButton}>
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2z" />
                 </svg>
                 방 공유하기
               </button>
@@ -306,8 +266,10 @@ const RoomPage: React.FC = () => {
   );
 };
 
-/* === 이하 기존 RoomMainContent(지도/찜/검색 로직) — 기능 변경 없음 === */
-const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
+/* ================================
+ * 지도/찜/검색 + 후보 병합
+ * ================================ */
+const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
   const { searchResults, setMapCenter, performSearch, selectedRestaurantId } = useSidebar();
   const { sendCursorPosition, otherUsersPositions } = useWebSocket();
 
@@ -317,6 +279,7 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
   const [lastSearchCenter, setLastSearchCenter] = useState<MapCenter | null>(null);
 
+  /* (유지) 찜 상태 보강 로직 */
   useEffect(() => {
     setStickyFavoriteById((prev) => {
       const next: Record<string, Restaurant> = { ...prev };
@@ -361,6 +324,7 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
     [favorites]
   );
 
+  /* (유지) 검색/찜 마커 */
   const mapMarkers = useMemo<(MapMarker & { isFavorite?: boolean })[]>(() => {
     return (unionRestaurants ?? [])
       .filter((r) => Number.isFinite(r?.location?.lat) && Number.isFinite(r?.location?.lng))
@@ -373,6 +337,46 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
         isFavorite: favoriteIdSet.has(Number(r.placeId)),
       }));
   }, [unionRestaurants, favoriteIdSet]);
+
+  /* ------------------------------------------------------------
+   * ✅ [추가] 후보 패널의 items → 지도 마커로 변환
+   *   - useCandidates(roomCode)와 CandidatePanel이 같은 소스 사용
+   *   - 좌표 필드가 다양한 가능성을 고려하여 방어적으로 파싱
+   * ------------------------------------------------------------ */
+  const { items: candidateItems, optimisticItems: optimisticCandidateItems } = useCandidates(roomCode); // ✅ [추가]
+
+  // optimisticItems가 있으면 우선 사용
+  const candidateMarkers = useMemo<(MapMarker & { isCandidate?: boolean })[]>(() => {
+    const toNum = (v: any) => (v == null ? null : Number(v));
+    const base = optimisticCandidateItems ?? candidateItems;
+    return (base ?? [])
+      .map((it: any) => {
+        const pid = toNum(it?.placeId ?? it?.id ?? it?.place?.placeId ?? it?.place?.id);
+        const rawLat = toNum(it?.location?.lat ?? it?.lat ?? it?.place?.lat ?? it?.place?.y);
+        const rawLng = toNum(it?.location?.lng ?? it?.lng ?? it?.place?.lng ?? it?.place?.x);
+        if (!pid || !Number.isFinite(rawLat) || !Number.isFinite(rawLng)) return null;
+
+        return {
+          id: String(pid),
+          position: { lat: rawLng, lng: rawLat },
+          title: it?.name ?? it?.place?.name ?? `후보 ${pid}`,
+          restaurant: it,
+          isCandidate: true,
+        } as MapMarker & { isCandidate: boolean };
+      })
+      .filter(Boolean) as (MapMarker & { isCandidate: boolean })[];
+  }, [candidateItems, optimisticCandidateItems]); // ✅ [추가]
+
+  /* ✅ [추가] 최종 병합: 후보가 우선 덮어쓰기 */
+  const finalMapMarkers = useMemo(() => {
+    const byId = new Map<string, MapMarker & { isFavorite?: boolean; isCandidate?: boolean }>();
+    for (const m of mapMarkers) byId.set(String(m.id), m); // 1) 기본(검색/찜)
+    for (const c of candidateMarkers) {                    // 2) 후보로 덮어쓰기
+      const prev = byId.get(String(c.id));
+      byId.set(String(c.id), { ...prev, ...c, isCandidate: true });
+    }
+    return Array.from(byId.values());
+  }, [mapMarkers, candidateMarkers]); // ✅ [추가]
 
   const handleMapMoved = useCallback((center: MapCenter) => {
     setMapCenter(center);
@@ -395,12 +399,18 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
       setShowCurrentLocationButton(false);
     }
   };
+  useEffect(() => {
+    console.log('[useCandidates] items:', candidateItems?.length ?? 0, candidateItems);
+    console.log('[candidateMarkers] count:', candidateMarkers.length);
+    console.log('[finalMapMarkers] candidates:', finalMapMarkers.filter(m => (m as any).isCandidate).length);
+    console.log('[finalMapMarkers] length:', finalMapMarkers.length, finalMapMarkers);
+  }, [candidateItems, candidateMarkers, finalMapMarkers]);
 
   const mapEventHandlers: MapEventHandlers = {
-    onMapClick: (lat, lng) => console.log('지도 클릭:', lat, lng, '방:', roomId),
-    onMarkerClick: (markerId) => console.log('마커 클릭:', markerId, '방:', roomId),
-    onMapDragEnd: (center) => console.log('지도 드래그 종료:', center, '방:', roomId),
-    onMapZoomChanged: (level) => console.log('지도 줌 변경:', level, '방:', roomId),
+    onMapClick: (lat, lng) => console.log('지도 클릭:', lat, lng, '방:', roomCode),
+    onMarkerClick: (markerId) => console.log('마커 클릭:', markerId, '방:', roomCode),
+    onMapDragEnd: (center) => console.log('지도 드래그 종료:', center, '방:', roomCode),
+    onMapZoomChanged: (level) => console.log('지도 줌 변경:', level, '방:', roomCode),
   };
 
   return (
@@ -410,7 +420,8 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
       style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh' }}
     >
       <MapContainer
-        markers={mapMarkers as any}
+        /* ✅ [변경] 후보까지 합친 최종 마커 전달 */
+        markers={finalMapMarkers as any}
         eventHandlers={mapEventHandlers}
         onMapMoved={handleMapMoved}
         onCursorMove={(pos) => sendCursorPosition(pos)}

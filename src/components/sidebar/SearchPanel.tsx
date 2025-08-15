@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useCandidates } from '../../hooks/useCandidates';
 import { EMPTY_MESSAGES, LOADING_MESSAGES, PANEL_CONFIGS } from '../../constants/sidebar';
 import styles from './SidebarPanels.module.css';
 import RestaurantCard from '../ui/RestaurantCard';
@@ -95,13 +96,20 @@ const SearchPanel: React.FC<Props> = ({ userId, center }) => {
     [inputValue, performSearch, mapCenter, center]
   );
 
-  // 토글 후 리스트를 새로고침하고 싶을 때 사용할 수 있는 콜백(선택)
-  const handleStateChange = useCallback(() => {
-    void performSearch({
-      query: inputValue.trim(),
-      center: mapCenter ?? center ?? DEFAULT_CENTER,
-    });
-  }, [performSearch, inputValue, mapCenter, center]);
+  // 후보 등록/취소 시 새로고침(performSearch) 하지 않도록 빈 함수로 변경
+  const handleStateChange = useCallback(() => {}, []);
+
+  // 후보 등록/취소 등 상태 변화가 있을 때 최신 optimisticItems를 반영하여 렌더링
+  const { optimisticItems, items } = useCandidates(undefined); // roomCode는 SearchPanel에서 직접 사용하지 않으므로 undefined
+  // searchResults에서 후보 등록/취소가 반영된 최신 리스트 생성
+  // (placeId 기준으로 optimisticItems에 포함된 경우 isCandidate: true로 덮어쓰기)
+  const candidateIds = new Set((!optimisticItems || optimisticItems === items || optimisticItems.length === 0)
+    ? items.map(r => r.placeId)
+    : optimisticItems.map(r => r.placeId));
+  const mergedResults = searchResults.map(r => ({
+    ...r,
+    isCandidate: candidateIds.has(r.placeId),
+  }));
 
   return (
     <div className={styles.panelContent}>
@@ -135,14 +143,14 @@ const SearchPanel: React.FC<Props> = ({ userId, center }) => {
         )}
 
         {/* 결과 */}
-        {!isLoading && searchResults.length > 0 && (
+        {!isLoading && mergedResults.length > 0 && (
           <div className={styles.resultsContainer}>
             <div className={styles.resultsHeader}>
-              <span>검색 결과 ({searchResults.length}개)</span>
+              <span>검색 결과 ({mergedResults.length}개)</span>
             </div>
 
             <div className={styles.restaurantCards}>
-              {searchResults.map((r) => (
+              {mergedResults.map((r) => (
                 // 카드 클릭 시 선택된 placeId를 전역 상태로 저장
                 <div
                   key={r.placeId}
@@ -188,7 +196,7 @@ const SearchPanel: React.FC<Props> = ({ userId, center }) => {
         )}
 
         {/* 빈 상태 */}
-        {!isLoading && searchResults.length === 0 && (
+        {!isLoading && mergedResults.length === 0 && (
           <div className={styles.emptyState}>
             <p>{EMPTY_MESSAGES.search}</p>
           </div>

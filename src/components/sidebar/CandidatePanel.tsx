@@ -21,13 +21,23 @@ interface Props {
   userId?: number;
 }
 
-const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
-  const { items, loading, error, refresh } = useCandidates(roomCode);
 
-  const handleStateChange = () => {
-    // 상태 변경 후 후보 목록 새로고침
-    refresh();
-  };
+const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
+  const { items, optimisticItems, setOptimisticItems, loading, error, refresh } = useCandidates(roomCode);
+
+  // 후보 삭제 시 낙관적으로 리스트에서 제거 (useCandidates의 setOptimisticItems 사용)
+  const handleStateChange = React.useCallback((removePlaceId?: number) => {
+    if (removePlaceId) {
+      setOptimisticItems((prev) => {
+        const base = prev ?? items;
+        const next = base.filter((r) => r.placeId !== removePlaceId);
+        console.log('[handleStateChange] optimisticItems after remove:', next);
+        return next;
+      });
+    } else {
+      refresh();
+    }
+  }, [setOptimisticItems, items, refresh]);
 
   // 순위별 메달과 스타일 정의
   const getRankInfo = (index: number, voteCount: number) => {
@@ -60,6 +70,11 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
     }
   };
 
+  // 항상 최신 items를 사용하도록, optimisticItems가 null이거나 items와 동일하면 items 사용
+  const candidateList = (!optimisticItems || optimisticItems === items || optimisticItems.length === 0)
+    ? items
+    : optimisticItems;
+
   return (
     <div className={styles.panelContent}>
       {/* 헤더 */}
@@ -89,13 +104,13 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
         )}
 
         {/* 후보 결과 */}
-        {!loading && items.length > 0 && (
+        {!loading && candidateList.length > 0 && (
           <div className={styles.resultsContainer}>
             <div className={styles.resultsHeader}>
-              <span>투표 후보 ({items.length}개)</span>
+              <span>투표 후보 {candidateList.length}개</span>
             </div>
             <div className={styles.restaurantCards}>
-              {items.map((restaurant, index) => {
+              {candidateList.map((restaurant, index) => {
                 const rankInfo = getRankInfo(index, restaurant.voteCount || 0);
                 return (
                   <div 
@@ -109,7 +124,6 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
                         <span className={styles.rankText}>{rankInfo.rankText}</span>
                       </div>
                     )}
-                    
                     <RestaurantCard
                       data={restaurant}
                       className={styles.restaurantCard}
