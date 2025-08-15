@@ -10,7 +10,7 @@
 
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, PlaceDetail } from '../types';
 import { chatAPI } from '../lib/api';
 import SockJS from 'sockjs-client';
 import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs';
