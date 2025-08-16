@@ -315,7 +315,7 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
   const [stickyFavoriteById, setStickyFavoriteById] = useState<Record<string, Restaurant>>({});
 
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
-  const [lastSearchCenter, setLastSearchCenter] = useState<MapCenter | null>(null);
+  const [lastSearchCenter] = useState<MapCenter | null>(null);
 
   const handleCurrentLocationSearch = useCallback(async (center: MapCenter) => {
     try {
