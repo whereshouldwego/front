@@ -130,7 +130,7 @@ const ActionButtons: React.FC<Props> = ({
         >
           {isInCandidatePanel 
             ? '🗑️'
-            : (isCandidate(placeId) ? '✅' : '☑️')
+            : (isCandidate(placeId) ? '🗑️' : '✅')
           }
         </button>
       )}
