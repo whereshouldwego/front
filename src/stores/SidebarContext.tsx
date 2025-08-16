@@ -214,7 +214,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
     loadMoreInFlightRef.current = true;
     try {
       const nextPage = page + 1;
-      const center = mapCenter ?? { lat: 37.5002, lng: 127.0364 };
+      const center = mapCenter ?? { lat: 36.35369004484255, lng: 127.34132312554642 };
 
       const delay = new Promise<void>(res => setTimeout(res, 1000));
       const fetchPromise = (lastQuery?.query ?? '').trim()

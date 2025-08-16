@@ -15,11 +15,11 @@ import RestaurantCard from '../ui/RestaurantCard';
 import ActionButtons from '../ui/ActionButtons';
 import styles from './SidebarPanels.module.css';
 // import { useRecommendations } from '../../hooks/useRecommendations'; 
- // 임시로 search 사용. 추후 생성해야 함
- import { useSidebar } from '../../stores/SidebarContext';
- import type { MapCenter } from '../../types';
- 
- const DEFAULT_CENTER: MapCenter = {
+// 임시로 search 사용. 추후 생성해야 함
+import { useSidebar } from '../../stores/SidebarContext';
+import type { MapCenter } from '../../types';
+
+const DEFAULT_CENTER: MapCenter = {
   lat: 37.5002, // 역삼역 위도
   lng: 127.0364 // 역삼역 경도
 };
@@ -33,7 +33,8 @@ const RecommendPanel: React.FC<RecommendPanelProps> = ({ userId, center }) => {
   // SidebarContext에서 검색 결과와 함수들 가져오기
   const { 
     searchResults,
-    performSearch
+    performSearch,
+    setSelectedRestaurantId, // ✅ [추가] 카드 클릭 시 선택 핀 지정
   } = useSidebar();
 
   // 컴포넌트 마운트 시 위치 기반 검색 실행 (추천용)
@@ -63,6 +64,7 @@ const RecommendPanel: React.FC<RecommendPanelProps> = ({ userId, center }) => {
       console.error('추천 데이터 새로고침 중 오류 발생:', error);
     }
   }, [center, performSearch]);
+
   // 추천 결과 렌더링
   const renderRecommendations = () => {
     if (!searchResults || searchResults.length === 0) {
@@ -72,66 +74,57 @@ const RecommendPanel: React.FC<RecommendPanelProps> = ({ userId, center }) => {
         </div>
       );
     }
+    return (
+      <div className={styles.resultsContainer}>
+        <div className={styles.resultsHeader}>
+          <span>추천 맛집 ({searchResults.length}개)</span>
+        </div>
+        <div className={styles.restaurantCards}>
+          {searchResults.map((restaurant) => (
+            // ✅ [추가] 카드 클릭 시 해당 식당으로 지도 포커스 이동
+            <div
+              key={restaurant.placeId}
+              className={styles.restaurantCard}
+              onClick={() => setSelectedRestaurantId(String(restaurant.placeId))} // ✅ [추가]
+            >
+              <RestaurantCard
+                data={restaurant}
+                className={styles.restaurantCard}
+                actions={
+                  <ActionButtons
+                    userId={userId}
+                    placeId={restaurant.placeId}
+                    showFavoriteButton
+                    showCandidateButton
+                    onStateChange={handleStateChange}
+                  />
+                }
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className={styles.resultsContainer}>
-    <div className={styles.resultsHeader}>
-      <span>추천 맛집 ({searchResults.length}개)</span>
-    </div>
-    <div className={styles.restaurantCards}>
-      {searchResults.map((restaurant) => (
-        <RestaurantCard
-          key={restaurant.placeId}
-          data={restaurant}
-          className={styles.restaurantCard}
-          actions={
-            <ActionButtons
-              userId={userId}
-              placeId={restaurant.placeId}
-              showFavoriteButton
-              showCandidateButton
-              onStateChange={handleStateChange}
-            />
-          }
-        />
-      ))}
-    </div>
-  </div>
-);
-};
-return (
-  <div className={styles.panelContent}>
-    {/* 헤더 */}
-    <div className={styles.panelHeader}>
-      <div className={styles.panelTitle}>
-        <div className={styles.titleContainer}>
-          <h2 className={styles.titleText}>{PANEL_CONFIGS.recommend.title}</h2>
+    <div className={styles.panelContent}>
+      {/* 헤더 */}
+      <div className={styles.panelHeader}>
+        <div className={styles.panelTitle}>
+          <div className={styles.titleContainer}>
+            <h2 className={styles.titleText}>{PANEL_CONFIGS.recommend.title}</h2>
+          </div>
         </div>
       </div>
-    </div>
 
-    {/* 패널 바디 */}
-    <div className={styles.panelBody}>
-      {/* 로딩 상태 */}
-      {/* {recommendationsLoading && (
-        <div className={styles.loadingState}>
-          <div className={styles.spinner}></div>
-          <p>{LOADING_MESSAGES.LOADING}</p>
-        </div>
-      )} */}
-
-      {/* 에러 상태 */}
-      {/* {!recommendationsLoading && recommendationsError && (
-        <div className={styles.errorState}>
-          <p>{recommendationsError}</p>
-        </div>
-      )} */}
-
-      {/* 추천 결과 */}
-      {renderRecommendations()}
+      {/* 패널 바디 */}
+      <div className={styles.panelBody}>
+        {/* 추천 결과 */}
+        {renderRecommendations()}
       </div>
-  </div>
-);
+    </div>
+  );
 };
-
 
 export default RecommendPanel;
