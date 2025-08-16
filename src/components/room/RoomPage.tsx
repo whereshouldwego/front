@@ -65,6 +65,8 @@ const RoomPage: React.FC = () => {
   const isLoadingRef = useRef(false);
   const loadedRoomId = useRef<string | null>(null);
 
+  const currentRoomId = roomCode || roomId;
+  
   useEffect(() => {
     if (!roomCode) {
       navigate('/');
@@ -266,18 +268,32 @@ const RoomPage: React.FC = () => {
   );
 };
 
-/* ================================
- * 지도/찜/검색 + 후보 병합
- * ================================ */
-const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
-  const { searchResults, setMapCenter, performSearch, selectedRestaurantId } = useSidebar();
+/* === 이하 기존 RoomMainContent(지도/찜/검색 로직) — 기능 변경 없음 === */
+const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
+  const { searchResults, setMapCenter, performSearch, selectedRestaurantId, mapCenter, setActivePanel } = useSidebar();
   const { sendCursorPosition, otherUsersPositions } = useWebSocket();
 
   const { favorites, favoriteIndex } = useRestaurantStore();
   const [stickyFavoriteById, setStickyFavoriteById] = useState<Record<string, Restaurant>>({});
 
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
-  const [lastSearchCenter, setLastSearchCenter] = useState<MapCenter | null>(null);
+  const [lastSearchCenter] = useState<MapCenter | null>(null);
+
+  const handleCurrentLocationSearch = useCallback(async (center: MapCenter) => {
+    try {
+      // 1. 검색 패널 열기
+      setActivePanel('search');
+      
+      // 2. 현재 위치 기반으로 검색 실행
+      await performSearch({
+        query: '', // 빈 쿼리로 위치 기반 검색
+        center: center,
+      });
+    } catch (error) {
+      console.error('이 지역에서 검색 실패:', error);
+    }
+  }, [setActivePanel, performSearch]);
+
 
   /* (유지) 찜 상태 보강 로직 */
   useEffect(() => {
@@ -432,6 +448,7 @@ const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
         onDepartureSubmit={(loc) => console.log('출발지 설정:', loc)}
         onCurrentLocationSearch={handleCurrentLocationSearch}
         showCurrentLocationButton={showCurrentLocationButton}
+        currentMapCenter={mapCenter ?? undefined}
       />
       <ChatSection onAuroraToggle={(a) => console.log('Aurora:', a)} />
     </div>

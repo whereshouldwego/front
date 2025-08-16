@@ -5,6 +5,7 @@
  * - 검색 제출 시에만 performSearch() 호출 → 드래그(mapCenter 변경)는 요청 X
  * - “우수수 로딩” 방지: Context의 isLoadingMore + inFlightRef로 가드
  * - CSS Module 스타일 유지
+ * - 전역 상태 사용으로 패널 전환 시에도 검색 결과 유지
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -33,7 +34,6 @@ const SearchPanel: React.FC<Props> = ({ userId, center }) => {
     performSearch,
     loadMore,
     mapCenter,
-    // 선택 상태 setter 사용
     setSelectedRestaurantId,
   } = useSidebar();
 
@@ -41,15 +41,6 @@ const SearchPanel: React.FC<Props> = ({ userId, center }) => {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
     // const panelBodyRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
-
-  // 초기 로딩: 위치 기반(현재 mapCenter 있으면 사용, 없으면 DEFAULT_CENTER 또는 props.center)
-  useEffect(() => {
-    void performSearch({
-      query: '',
-      center: mapCenter ?? center ?? DEFAULT_CENTER,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // IntersectionObserver 설치: 바닥 sentinel이 보이면 loadMore()
   useEffect(() => {
@@ -168,7 +159,7 @@ const SearchPanel: React.FC<Props> = ({ userId, center }) => {
                           showFavoriteButton
                           showCandidateButton
                           onStateChange={handleStateChange}
-                        />
+                      />
                       ) : null
                     }
                   />

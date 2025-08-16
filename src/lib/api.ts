@@ -274,16 +274,17 @@ export const placeAPI = {
       console.log('[DEBUG] 백엔드 데이터 전체 구조:');
       console.log(JSON.stringify(result.data, null, 2));  // 전체 구조를 보기 좋게 출력
       
-      console.log('[DEBUG] 백엔드 각 필드별 상세:');
+      console.log('[DEBUG] 백엔드 각 필드별 상세 (PlaceResponse):');
       console.table({
-        'placeId': { value: result.data.placeId, type: typeof result.data.placeId },
-        'placeName': { value: result.data.placeName, type: typeof result.data.placeName },
+        'id': { value: result.data.id, type: typeof result.data.id },
+        'name': { value: result.data.name, type: typeof result.data.name },
         'kakaoUrl': { value: result.data.kakaoUrl, type: typeof result.data.kakaoUrl },
-        'x': { value: result.data.x, type: typeof result.data.x },
-        'y': { value: result.data.y, type: typeof result.data.y },
+        'lat': { value: result.data.lat, type: typeof result.data.lat },
+        'lng': { value: result.data.lng, type: typeof result.data.lng },
         'address': { value: result.data.address, type: typeof result.data.address },
         'roadAddress': { value: result.data.roadAddress, type: typeof result.data.roadAddress },
         'phone': { value: result.data.phone, type: typeof result.data.phone },
+        'categoryName': { value: result.data.categoryName, type: typeof result.data.categoryName },
         'categoryDetail': { value: result.data.categoryDetail, type: typeof result.data.categoryDetail },
         'menu': { value: result.data.menu, type: typeof result.data.menu, isArray: Array.isArray(result.data.menu), length: Array.isArray(result.data.menu) ? result.data.menu.length : 'N/A' },
         'mood': { value: result.data.mood, type: typeof result.data.mood, isArray: Array.isArray(result.data.mood), length: Array.isArray(result.data.mood) ? result.data.mood.length : 'N/A' },
@@ -369,13 +370,13 @@ function toBackendEnsureBody(src: PlaceEnsureBody): EnsureBackendBody {
 // 통합 검색 API
 export const integratedSearchAPI = {
   // 키워드 검색 및 데이터 보강
-  searchAndEnrich: async (query: string, center?: MapCenter, opts?: { roomCode?: string; page?: number; size?: number }): Promise<Restaurant[]> => {
+  searchAndEnrich: async (query: string, center?: MapCenter, opts?: { roomCode?: string; page?: number; size?: number; saveToDb?: boolean }): Promise<Restaurant[]> => {
     try {
       // 1) 후보 제외
       let excluded = new Set<number>();
       if (opts?.roomCode) {
         const hist = await candidateAPI.history(opts.roomCode);
-        if (hist.success) excluded = new Set(hist.data.map(i => Number(i.place.placeId)));
+        if (hist.success) excluded = new Set(hist.data.map(i => Number(i.place.id)));
       }
 
       // 2) 카카오 검색
@@ -393,8 +394,8 @@ export const integratedSearchAPI = {
       // 3) 후보 제외
       const docs = kakao.documents.filter(d => !excluded.has(Number(d.id)));
 
-      // 4) ✅ 배치 ensure (0개면 스킵)
-      if (docs.length > 0) {
+      // 4) 🆕 조건부 DB 저장: saveToDb 옵션이 true일 때만 저장
+      if (docs.length > 0 && opts?.saveToDb) {
         const bodies = docs.map(d => toEnsureBody(d));
         try {
           await placeAPI.ensureMany(bodies);
@@ -432,8 +433,11 @@ export const integratedSearchAPI = {
         });        
         if (detail.success) {
           const dd = detail.data;
-          console.log('[DEBUG] searchAndEnrich - 상세 데이터:', {
-            placeName: dd.placeName,
+          console.log('[DEBUG] searchAndEnrich - 상세 데이터 (PlaceResponse):', {
+            name: dd.name,
+            lat: dd.lat,
+            lng: dd.lng,
+            categoryDetail: dd.categoryDetail,
             menu: dd.menu,
             mood: dd.mood,
             feature: dd.feature,
@@ -442,12 +446,12 @@ export const integratedSearchAPI = {
           
           const enrichedItem = {
             ...base,
-            name: dd.placeName || base.name,
-            category: dd.categoryDetail || base.category,    // 백엔드 없으면 카카오 카테고리
+            name: dd.name || base.name,                     // name 필드 사용
+            category: dd.categoryDetail || base.category,   // 백엔드 없으면 카카오 카테고리
             phone: dd.phone || base.phone,
             location: {
-              lat: dd.y ? parseFloat(dd.y) : base.location.lat,
-              lng: dd.x ? parseFloat(dd.x) : base.location.lng,
+              lat: dd.lat ?? base.location.lat,             // lat 필드 사용 (이미 number)
+              lng: dd.lng ?? base.location.lng,             // lng 필드 사용 (이미 number)
               address: dd.address || base.location.address,
               roadAddress: dd.roadAddress || base.location.roadAddress,
             },
@@ -478,7 +482,7 @@ export const integratedSearchAPI = {
       let excluded = new Set<number>();
       if (opts?.roomCode) {
         const hist = await candidateAPI.history(opts.roomCode);
-        if (hist.success) excluded = new Set(hist.data.map(i => Number(i.place.placeId)));
+        if (hist.success) excluded = new Set(hist.data.map(i => Number(i.place.id)));
       }
 
       const kakao = await kakaoMapAPI.searchByCategoryWithParams({
@@ -494,17 +498,17 @@ export const integratedSearchAPI = {
       const docs = kakao.documents.filter(d => !excluded.has(Number(d.id)));
 
       // ✅ 순차 ensure
-      if (docs.length > 0) {
-        const bodies = docs.map(d => toEnsureBody(d));
-        try {
-          await placeAPI.ensureMany(bodies);
-        } catch (e) {
-          console.warn('[ensureMany] batch skip, fallback to per-item', e);
-          for (const b of bodies) {
-            try { await placeAPI.ensureOne(b); } catch {}
-          }
-        }
-      }
+      // if (docs.length > 0) {
+      //   const bodies = docs.map(d => toEnsureBody(d));
+      //   try {
+      //     await placeAPI.ensureMany(bodies);
+      //   } catch (e) {
+      //     console.warn('[ensureMany] batch skip, fallback to per-item', e);
+      //     for (const b of bodies) {
+      //       try { await placeAPI.ensureOne(b); } catch {}
+      //     }
+      //   }
+      // }
 
       // 상세 보강(위와 동일)
       const enriched: Restaurant[] = [];
@@ -526,12 +530,12 @@ export const integratedSearchAPI = {
         const detail = await placeAPI.getPlaceById(base.placeId);
         enriched.push(detail.success ? {
           ...base,
-          name: detail.data.placeName || base.name,
-          category: detail.data.categoryDetail || base.category,  // 백엔드 없으면 카카오
+          name: detail.data.name || base.name,                     // name 필드 사용
+          category: detail.data.categoryDetail || base.category,   // 백엔드 없으면 카카오
           phone: detail.data.phone || base.phone,
           location: {
-            lat: detail.data.y ? parseFloat(detail.data.y) : base.location.lat,
-            lng: detail.data.x ? parseFloat(detail.data.x) : base.location.lng,
+            lat: detail.data.lat ?? base.location.lat,             // lat 필드 사용 (이미 number)
+            lng: detail.data.lng ?? base.location.lng,             // lng 필드 사용 (이미 number)
             address: detail.data.address || base.location.address,
             roadAddress: detail.data.roadAddress || base.location.roadAddress,
           },
