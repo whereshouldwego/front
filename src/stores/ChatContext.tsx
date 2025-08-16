@@ -201,13 +201,36 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
     const client = clientRef.current;
     if (!client || !client.connected) return;
 
-    const payload = {
-      roomCode: roomCode,
-      userId: userIdRef.current ? Number(userIdRef.current) : null,
-      username: localStorage.getItem('userNickname') || undefined,
-      content: message,
-      isAi: options?.isAi,
-    };
+    const payload = options?.isAi 
+    ? {
+        // AI 모드 - 백엔드 개발 후 수정 필요할 수 있음
+        userId: userIdRef.current ? Number(userIdRef.current) : null,
+        content: message,
+        isAi: true,
+      }
+    : {
+        // 일반 채팅: 기존 형식 유지
+        roomCode: roomCode,
+        userId: userIdRef.current ? Number(userIdRef.current) : null,
+        username: localStorage.getItem('userNickname') || undefined,
+        content: message,
+        isAi: false,
+      };
+
+    if (options?.isAi) {
+      console.log('🤖 AI 모드 요청 전송:', {
+        message: message,
+        payload: payload,
+        timestamp: new Date().toISOString(),
+        destination: `/ws/chat.${roomCode}`
+      });
+    } else {
+      console.log('�� 일반 채팅 메시지 전송:', {
+        message: message,
+        payload: payload,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     try {
       setLoading(true);

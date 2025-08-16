@@ -83,7 +83,7 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
           >
             <div className={styles.messageContent}>
               <div className={styles.messageMeta}>
-                <span className={styles.nick}>{msg.username || '익명'}</span>
+                <span className={styles.nick}>{msg.username || 'ai 추천 요청'}</span>
                 <span className={styles.messageTime}>
                   {formatTime(new Date(createdAt))}
                 </span>
@@ -110,14 +110,19 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
       {/* 메시지 입력 */}
       <form className={styles.inputContainer} onSubmit={handleSubmit}>
       <button
-          type="button"
-          onClick={() => setAiOn(v => !v)}
-          disabled={loading}
-          className={`${styles.aiToggleButton} ${aiOn ? styles.aiToggleActive : ''}`}
-          title={aiOn ? 'AI 추천 모드 끄기' : 'AI 추천 모드 켜기'}
-        >
-          {aiOn ? 'AI추천: ON' : 'AI추천'}
-        </button>
+        type="button"
+        onClick={() => setAiOn(v => !v)}
+        disabled={loading}
+        className={styles.aiToggleButton}
+        title={aiOn ? 'AI 추천 모드 끄기' : 'AI 추천 모드 켜기'}
+      >
+        <img 
+          src={aiOn ? '/images/active_button.gif' : '/images/button.png'} 
+          alt="AI 모드 토글"
+          width="24"
+          height="24"
+        />
+      </button>
 
         <input
           type="text"

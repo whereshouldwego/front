@@ -17,6 +17,23 @@
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+.aiToggleButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.aiToggleButton:hover {
+  transform: scale(1.05);
+}
 
 .chatControls {
   display: flex;
@@ -156,6 +173,8 @@
   outline: none;
   background: white;
   transition: border-color 0.2s ease;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .messageInput:focus {
