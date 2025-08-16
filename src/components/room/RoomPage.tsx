@@ -237,6 +237,27 @@ const RoomPage: React.FC = () => {
 
     return (
       <div className={styles.errorContainer}>
+                {/* 음식 이모티콘 비 애니메이션 */}
+                <div className={styles.foodRain}>
+          <div className={styles.foodDrop}>🍕</div>
+          <div className={styles.foodDrop}>🍔</div>
+          <div className={styles.foodDrop}>🍜</div>
+          <div className={styles.foodDrop}>🍣</div>
+          <div className={styles.foodDrop}>🍖</div>
+          <div className={styles.foodDrop}>🍗</div>
+          <div className={styles.foodDrop}>🥘</div>
+          <div className={styles.foodDrop}>🍱</div>
+          <div className={styles.foodDrop}>🥗</div>
+          <div className={styles.foodDrop}>🍝</div>
+          <div className={styles.foodDrop}>🍛</div>
+          <div className={styles.foodDrop}>🥩</div>
+          <div className={styles.foodDrop}>🍤</div>
+          <div className={styles.foodDrop}>🥟</div>
+          <div className={styles.foodDrop}>🍙</div>
+          <div className={styles.foodDrop}>🍚</div>
+          <div className={styles.foodDrop}>🍞</div>
+          <div className={styles.foodDrop}>🥐</div>
+        </div>
         <div className={styles.errorContent}>
           <div className={styles.errorIcon}>🚫</div>
 
