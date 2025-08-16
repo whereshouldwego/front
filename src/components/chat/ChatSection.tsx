@@ -20,6 +20,7 @@ import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { useChat } from '../../stores/ChatContext'; // Updated import
 import type { ChatMessage } from '../../types';
 import styles from './ChatSection.module.css';
+import { useSidebar } from '../../stores/SidebarContext';
 
 interface ChatSectionProps {
   onAuroraToggle?: (isActive: boolean) => void;
@@ -27,16 +28,29 @@ interface ChatSectionProps {
 
 const ChatSection: React.FC<ChatSectionProps> = () => {
   const { messages, loading, sendMessage} = useChat();
+  const { setActivePanel } = useSidebar();
   const [inputValue, setInputValue] = useState('');
+  const [aiOn, setAiOn] = useState(false);
   const selfUserId = useMemo(() => localStorage.getItem('userId') || '', []);
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  // 🆕 추천 응답이 오면 패널 자동 오픈
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.items?.length) setActivePanel('recommend');
+    };
+    window.addEventListener('recommend:payload', handler);
+    return () => window.removeEventListener('recommend:payload', handler);
+  }, [setActivePanel]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || loading) return;
 
-    await sendMessage(inputValue.trim());
+    await sendMessage(inputValue.trim(), { isAi: aiOn } );
     setInputValue('');
+    if (aiOn) setAiOn(false);
   };
 
   const formatTime = (date: Date): string => {
@@ -95,21 +109,31 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
 
       {/* 메시지 입력 */}
       <form className={styles.inputContainer} onSubmit={handleSubmit}>
+      <button
+          type="button"
+          onClick={() => setAiOn(v => !v)}
+          disabled={loading}
+          className={`${styles.aiToggleButton} ${aiOn ? styles.aiToggleActive : ''}`}
+          title={aiOn ? 'AI 추천 모드 끄기' : 'AI 추천 모드 켜기'}
+        >
+          {aiOn ? 'AI추천: ON' : 'AI추천'}
+        </button>
+
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="메시지를 입력하세요..."
+          placeholder={aiOn ? '예) 유성구 맛집 추천해줘' : '메시지를 입력하세요...'}
           className={styles.messageInput}
           disabled={loading}
         />
-        <button
+        {/* <button
           type="submit"
           className={styles.sendButton}
           disabled={!inputValue.trim() || loading}
         >
           ➤
-        </button>
+        </button> */}
       </form>
     </div>
   );

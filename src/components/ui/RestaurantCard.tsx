@@ -36,7 +36,7 @@ const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
     <div className={`${styles.restaurantCard} ${className || ''}`}>
       <div className={styles.header}>
         <h3 className={styles.name}>{data.name}</h3>
-        <span className={styles.category}>{getSecondCategory(data.category)}</span>
+        <span className={styles.category}>{getSecondCategory(data.category || '')}</span>
       </div>
     
       <div className={styles.details}>

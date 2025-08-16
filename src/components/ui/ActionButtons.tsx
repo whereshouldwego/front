@@ -12,6 +12,7 @@ interface Props {
   onStateChange?: () => void;
   // 후보 패널에서 사용될 때 버튼 의미 변경
   isInCandidatePanel?: boolean;
+  roomCode?: string;
 }
 
 const ActionButtons: React.FC<Props> = ({
@@ -21,7 +22,7 @@ const ActionButtons: React.FC<Props> = ({
   showVoteButton, 
   showCandidateButton,
   onStateChange,
-  isInCandidatePanel = false
+  isInCandidatePanel = false,
 }) => {
   const {
     isFavorited,
