@@ -165,6 +165,23 @@ const MapContainer: React.FC<MapContainerProps> = ({
     if (mapRef.current) { (mapRef.current as any).getCurrentCenter = getCurrentCenter; }
   }, [currentCenter]);
 
+  /* ✅ [변경 | 추가] 선택된 마커로 지도 포커스 이동
+       - selectedMarkerId가 바뀔 때 해당 마커 좌표로 panTo
+       - 확대/축소 레벨은 기존 레벨 유지(요구사항: 포커스 이동)
+  */
+  useEffect(() => {
+    if (!selectedMarkerId || !mapObjectRef.current || !window.kakao) return; // ✅ 안전 가드
+    const target = markers.find(m => m.id === selectedMarkerId);
+    if (!target) return;
+
+    try {
+      const latlng = new window.kakao.maps.LatLng(target.position.lat, target.position.lng);
+      mapObjectRef.current.panTo(latlng); // ✅ 선택된 마커로 포커스 이동
+    } catch (e) {
+      console.warn('[MapContainer] panTo 실패:', e);
+    }
+  }, [selectedMarkerId, markers]); // ✅ 의존성: 선택/마커 목록 변동 시 동작
+
   /* ✅ [변경] 선택/찜/후보 여부에 따라 다른 마커 SVG 생성
         - 선택: 60px / 기본: 40px
         - 후보: 초록 + 체크박스(☑)
@@ -191,20 +208,16 @@ const MapContainer: React.FC<MapContainerProps> = ({
         : '<circle cx="24" cy="20" r="6" fill="#fff"/>');
 
     const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">
-        <defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.35"/></filter></defs>
-        <g filter="url(#shadow)">
-          <path d="M24 44s14-14 14-24A14 14 0 1 0 10 20c0 10 14 24 14 24z" fill="${fillColor}"/>
-          ${inner}
-        </g>
-      </svg>`;
-    const url = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+      <svg width="${size}" height="${size}" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <path d="M24 2 C14 2 6 10 6 20 c0 12 18 26 18 26 s18-14 18-26 C42 10 34 2 24 2 z" fill="${fillColor}" />
+        ${inner}
+      </svg>
+    `;
     return {
-      src: url,
+      src: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
       size: { width: size, height: size },
-      options: { offset: { x: size / 2, y: size } }, // 핀 끝이 좌표에 닿도록
-    } as const;
+      options: { offset: { x: size / 2, y: size } },
+    };
   };
 
   // 에러/로딩 표시
@@ -225,7 +238,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
       <div className={`w-full h-full flex items-center justify-center bg-gray-100 ${className}`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">지도를 불러오는 중...</p>
+          <p className="text-gray-600">지도를 불러오는 중.</p>
         </div>
       </div>
     );
@@ -246,7 +259,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         {/* 마커 렌더링 */}
         {markers.map((m) => {
           const isSelected = selectedMarkerId === m.id;
-          const isFavorite = !!m.isFavorite;      // ✅ 찜 여부
+          const isFavorite = !!m.isFavorite;            // ✅ 찜 여부
           const isCandidate = !!(m as any).isCandidate; // ✅ 후보 여부
           return (
             <MapMarker
@@ -285,7 +298,7 @@ const MapContainer: React.FC<MapContainerProps> = ({
         {/* 다른 사용자 커서 표시 */}
         {cursorPositions.map((cp) => (
           <CustomOverlayMap key={cp.id} position={cp.position} zIndex={1000}>
-            <div style={{ 
+            <div style={{
               position: 'relative',
               pointerEvents: 'none',
               display: 'flex',
@@ -293,26 +306,26 @@ const MapContainer: React.FC<MapContainerProps> = ({
               alignItems: 'flex-start',
               transform: 'translate(0, 0)',
             }}>
-              <svg 
-                width="30" 
-                height="30" 
-                viewBox="0 0 24 24" 
-                fill={colorFromString(cp.id)} 
-                stroke="#ffffff" 
-                strokeWidth="1.5" 
-                style={{ 
+              <svg
+                width="30"
+                height="30"
+                viewBox="0 0 24 24"
+                fill={colorFromString(cp.id)}
+                stroke="#ffffff"
+                strokeWidth="1.5"
+                style={{
                   filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))',
                   marginBottom: '2px'
                 }}
               >
                 <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
               </svg>
-              
+
               {/* 사용자 닉네임 - 커서 아래에 표시 */}
-              <div style={{ 
-                color: '#000', 
-                fontSize: '11px', 
-                fontWeight: '600', 
+              <div style={{
+                color: '#000',
+                fontSize: '11px',
+                fontWeight: '600',
                 whiteSpace: 'nowrap',
                 marginLeft: '2px',
                 textShadow: '1px 1px 2px rgba(255,255,255,0.8), -1px -1px 2px rgba(255,255,255,0.8)'

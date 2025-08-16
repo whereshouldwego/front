@@ -17,6 +17,7 @@ import RestaurantCard from '../ui/RestaurantCard';
 import ActionButtons from '../ui/ActionButtons';
 
 import { useFavorites } from '../../hooks/useFavorites';
+import { useSidebar } from '../../stores/SidebarContext'; // ✅ [추가] 지도 포커스 이동을 위해
 
 interface Props {
   userId: number;
@@ -27,7 +28,9 @@ const FavoritePanel: React.FC<Props> = ({ userId }) => {
   
   const uid = userId ?? 1;
   const { items, loading, error } = useFavorites(uid);
-  
+
+  const { setSelectedRestaurantId } = useSidebar(); // ✅ [추가] 카드 클릭 시 선택 핀 지정
+
   console.log('[DEBUG] FavoritePanel - useFavorites 결과:', { items, loading, error });
 
   return (
@@ -73,6 +76,7 @@ const FavoritePanel: React.FC<Props> = ({ userId }) => {
             )}
           </div>
         )}
+
         {/* 찜한 맛집 결과 */}
         {!loading && !error && items.length > 0 && (
           <div className={styles.resultsContainer}>
@@ -81,7 +85,12 @@ const FavoritePanel: React.FC<Props> = ({ userId }) => {
             </div>
             <div className={styles.restaurantCards}>
               {items.map((restaurant) => (
-                <div key={restaurant.placeId} className={styles.favoriteItem}>
+                // ✅ [추가] 카드 전체를 클릭하면 해당 placeId로 지도 포커스 이동
+                <div
+                  key={restaurant.placeId}
+                  className={styles.favoriteItem}
+                  onClick={() => setSelectedRestaurantId(String(restaurant.placeId))} // ✅ [추가]
+                >
                   <RestaurantCard
                     data={restaurant}
                     className={styles.restaurantCard}
@@ -110,4 +119,4 @@ const FavoritePanel: React.FC<Props> = ({ userId }) => {
   );
 };
 
-export default FavoritePanel; 
+export default FavoritePanel;
