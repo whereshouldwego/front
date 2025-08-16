@@ -7,8 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { candidateAPI } from '../lib/api';
 import type { RestaurantWithStatus } from '../types';
 import { useRestaurantStore } from '../stores/RestaurantStore';
-import { placeDetailToRestaurant } from '../utils/location';
-import { CandidateClient } from '../stores/CandidateClient';
+import { CandidateClient, candidateToRestaurant } from '../stores/CandidateClient';
 
 export function useCandidates(roomCode: string | undefined) {
   const [items, setItems] = useState<RestaurantWithStatus[]>([]);
@@ -33,7 +32,7 @@ export function useCandidates(roomCode: string | undefined) {
         const candidateIds = new Set<number>();
         
         res.data.forEach(item => {
-          const placeId = item.place.placeId;
+          const placeId = item.place.id;                   // placeId → id
           candidateIds.add(placeId);
           voteCounts[placeId] = item.voteCount;
           
@@ -51,13 +50,21 @@ export function useCandidates(roomCode: string | undefined) {
           votedRestaurants: votedSet
         });
         
-        const enrichedItems: RestaurantWithStatus[] = res.data.map(item => ({
-          ...placeDetailToRestaurant(item.place),
-          isFavorite: isFavorited(item.place.placeId),
-          isCandidate: true,
-          isVoted: votedSet.has(item.place.placeId),
-          voteCount: item.voteCount
-        }));
+        // STOMP와 동일한 candidateToRestaurant 함수 사용
+        const enrichedItems: RestaurantWithStatus[] = res.data.map(item => {
+          console.log('[useCandidates] API 응답 데이터:', item);
+          
+          // candidateToRestaurant 함수 사용 (STOMP와 동일한 로직)
+          const base = candidateToRestaurant(item.place);
+          
+          return {
+            ...base,
+            isFavorite: isFavorited(item.place.id),
+            isCandidate: true,
+            isVoted: votedSet.has(item.place.id),
+            voteCount: item.voteCount
+          };
+        });
         setItems(enrichedItems);
       } else {
         setError(res.error.message);
