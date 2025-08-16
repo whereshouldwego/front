@@ -393,8 +393,8 @@ export const integratedSearchAPI = {
       // 3) 후보 제외
       const docs = kakao.documents.filter(d => !excluded.has(Number(d.id)));
 
-      // 4) ✅ 배치 ensure (0개면 스킵)
-      if (docs.length > 0) {
+      // 4) 🆕 조건부 DB 저장: saveToDb 옵션이 true일 때만 저장
+      if (docs.length > 0 && opts?.saveToDb) {
         const bodies = docs.map(d => toEnsureBody(d));
         try {
           await placeAPI.ensureMany(bodies);
@@ -494,17 +494,17 @@ export const integratedSearchAPI = {
       const docs = kakao.documents.filter(d => !excluded.has(Number(d.id)));
 
       // ✅ 순차 ensure
-      if (docs.length > 0) {
-        const bodies = docs.map(d => toEnsureBody(d));
-        try {
-          await placeAPI.ensureMany(bodies);
-        } catch (e) {
-          console.warn('[ensureMany] batch skip, fallback to per-item', e);
-          for (const b of bodies) {
-            try { await placeAPI.ensureOne(b); } catch {}
-          }
-        }
-      }
+      // if (docs.length > 0) {
+      //   const bodies = docs.map(d => toEnsureBody(d));
+      //   try {
+      //     await placeAPI.ensureMany(bodies);
+      //   } catch (e) {
+      //     console.warn('[ensureMany] batch skip, fallback to per-item', e);
+      //     for (const b of bodies) {
+      //       try { await placeAPI.ensureOne(b); } catch {}
+      //     }
+      //   }
+      // }
 
       // 상세 보강(위와 동일)
       const enriched: Restaurant[] = [];
