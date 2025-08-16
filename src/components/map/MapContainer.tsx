@@ -15,7 +15,7 @@
  * - className: 추가 CSS 클래스
  */
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Map, MapMarker, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import type { MapMarker as MapMarkerType, MapEventHandlers, MapCenter } from '../../types';
 import { colorFromString } from '../../utils/color';
@@ -87,12 +87,6 @@ const MapContainer: React.FC<MapContainerProps> = ({
     [markers, hoveredMarkerId]
   );
   
-  const handleMarkerMouseLeave = useCallback(() => {
-    // 약간의 지연을 두어 안정성 향상
-    hoverTimeoutRef.current = setTimeout(() => {
-      setHoveredMarkerId(null);
-    }, 100);
-  }, []);
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) {

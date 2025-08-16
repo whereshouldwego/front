@@ -99,7 +99,7 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
                 const rankInfo = getRankInfo(index, restaurant.voteCount || 0);
                 return (
                   <div 
-                    key={restaurant.placeId} 
+                    key={`candidate-${restaurant.placeId}-${index}`}
                     className={`${styles.candidateItem} ${rankInfo.className}`}
                   >
                     {/* 순위 표시 */}

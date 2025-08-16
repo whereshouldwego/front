@@ -23,7 +23,8 @@ interface Props {
 const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
   // const hasStatus = 'isFavorite' in data;
 
-  const getSecondCategory = (category: string): string => {
+  const getSecondCategory = (category: string | null | undefined): string => {
+    if (!category) return '';
     const parts = category.split(' > ');
     return parts.length >= 2 ? parts[1] : category;
   };

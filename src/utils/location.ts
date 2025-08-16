@@ -18,13 +18,13 @@ export async function getStartLocation(): Promise<{ lat: number; lng: number }> 
   export function placeDetailToRestaurant(d: PlaceDetail): Restaurant {
     console.log('[DEBUG] placeDetailToRestaurant 입력:', d);
     return {
-      placeId: d.placeId,
-      name: d.placeName,
+      placeId: d.id,
+      name: d.name,
       category: d.categoryDetail,
       phone: d.phone,
       location: {
-        lat: parseFloat(d.y),
-        lng: parseFloat(d.x),
+        lat: d.lat,
+        lng: d.lng,
         address: d.address,
         roadAddress: d.roadAddress,
       },
