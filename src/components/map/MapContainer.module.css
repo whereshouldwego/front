@@ -1,0 +1,41 @@
+/* Hover 말풍선 스타일 */
+.tooltip {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translate(-50%, -100%);
+    margin-top: -40px;
+    pointer-events: none;
+    user-select: none;
+    z-index: 1000;
+  }
+  
+  .tooltipBody {
+    display: inline-block;
+    border-radius: 8px;
+    background: #0ea5e9; /* 하늘색 */
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 12px;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+    white-space: nowrap;
+    border: 1px solid #0ea5e9;
+  }
+  
+  .tooltipArrow {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid #0ea5e9; /* 하늘색 삼각형 */
+  }
+  
+  /* 선택된 마커일 때 높이 조정 */
+  .tooltip.selected {
+    transform: translate(-50%, calc(-100% - 68px)); /* 60px 마커 + 8px 간격 */
+  }

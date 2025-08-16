@@ -15,11 +15,12 @@
  * - className: 추가 CSS 클래스
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Map, MapMarker, CustomOverlayMap } from 'react-kakao-maps-sdk';
 import type { MapMarker as MapMarkerType, MapEventHandlers, MapCenter } from '../../types';
 import { colorFromString } from '../../utils/color';
 import { useWebSocket } from '../../stores/WebSocketContext';
+import styles from './MapContainer.module.css';
 
 /* ✅ (추가) 찜 구분 플래그 허용 */
 type MarkerWithFavorite = MapMarkerType & { isFavorite?: boolean };
@@ -80,10 +81,26 @@ const MapContainer: React.FC<MapContainerProps> = ({
 
   // ✅ 말풍선(가게명) hover 제어
   const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hoveredMarker = useMemo(
     () => markers.find((m) => m.id === hoveredMarkerId) || null,
     [markers, hoveredMarkerId]
   );
+  
+  const handleMarkerMouseLeave = useCallback(() => {
+    // 약간의 지연을 두어 안정성 향상
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredMarkerId(null);
+    }, 100);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+    
 
   // 8~12Hz 스로틀
   useEffect(() => {
@@ -248,25 +265,18 @@ const MapContainer: React.FC<MapContainerProps> = ({
 
         {/* ✅ 말풍선: hover시에만, 흰 배경/검정 글씨, 마커 바로 위 */}
         {hoveredMarker && (
-          <CustomOverlayMap position={hoveredMarker.position} zIndex={1000}>
-            {(() => {
-              const markerHeight = selectedMarkerId === hoveredMarker.id ? 60 : 40;
-              const gap = 6;
-              const translate = `translate(-50%, calc(-100% - ${markerHeight + gap}px))`;
-              return (
-                <div className="pointer-events-none select-none" style={{ position: 'relative', left: '50%', transform: translate, opacity: 1 }}>
-                  <div className="inline-block px-2 py-1 border border-gray-300 rounded-md shadow-md whitespace-nowrap" style={{ lineHeight: 1.2, backgroundColor: '#ffffff', opacity: 1 }}>
-                    <span className="text-[11px] font-medium" style={{ color: '#000000' }}>
-                      {hoveredMarker.restaurant?.name ?? hoveredMarker.title}
-                    </span>
-                  </div>
-                  <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 border border-gray-300 rotate-45 shadow-sm" style={{ backgroundColor: '#ffffff', opacity: 1 }} />
-                </div>
-              );
-            })()}
+          <CustomOverlayMap 
+            position={hoveredMarker.position} 
+            zIndex={1000}
+          >
+            <div className={styles.tooltip}>
+              <div className={styles.tooltipBody}>
+                {hoveredMarker.restaurant?.name ?? hoveredMarker.title}
+              </div>
+              <div className={styles.tooltipArrow} />
+            </div>
           </CustomOverlayMap>
         )}
-
         {/* 다른 사용자 커서 표시 */}
         {cursorPositions.map((cp) => (
           <CustomOverlayMap key={cp.id} position={cp.position} zIndex={1000}>
