@@ -65,7 +65,7 @@ const RoomPage: React.FC = () => {
   const loadedRoomId = useRef<string | null>(null);
 
   const currentRoomId = roomCode || roomId;
-
+  
   useEffect(() => {
     if (!currentRoomId) {
       navigate('/');
@@ -308,7 +308,7 @@ const RoomPage: React.FC = () => {
 
 /* === 이하 기존 RoomMainContent(지도/찜/검색 로직) — 기능 변경 없음 === */
 const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
-  const { searchResults, setMapCenter, performSearch, selectedRestaurantId } = useSidebar();
+  const { searchResults, setMapCenter, performSearch, selectedRestaurantId, mapCenter, setActivePanel } = useSidebar();
   const { sendCursorPosition, otherUsersPositions } = useWebSocket();
 
   const { favorites, favoriteIndex } = useRestaurantStore();
@@ -316,6 +316,22 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
 
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
   const [lastSearchCenter, setLastSearchCenter] = useState<MapCenter | null>(null);
+
+  const handleCurrentLocationSearch = useCallback(async (center: MapCenter) => {
+    try {
+      // 1. 검색 패널 열기
+      setActivePanel('search');
+      
+      // 2. 현재 위치 기반으로 검색 실행
+      await performSearch({
+        query: '', // 빈 쿼리로 위치 기반 검색
+        center: center,
+      });
+    } catch (error) {
+      console.error('이 지역에서 검색 실패:', error);
+    }
+  }, [setActivePanel, performSearch]);
+
 
   useEffect(() => {
     setStickyFavoriteById((prev) => {
@@ -386,16 +402,6 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
     }
   }, [lastSearchCenter, setMapCenter]);
 
-  const handleCurrentLocationSearch = async (center: MapCenter) => {
-    try {
-      await performSearch({ query: '', center });
-      setShowCurrentLocationButton(false);
-      setLastSearchCenter(center);
-    } catch {
-      setShowCurrentLocationButton(false);
-    }
-  };
-
   const mapEventHandlers: MapEventHandlers = {
     onMapClick: (lat, lng) => console.log('지도 클릭:', lat, lng, '방:', roomId),
     onMarkerClick: (markerId) => console.log('마커 클릭:', markerId, '방:', roomId),
@@ -421,6 +427,7 @@ const RoomMainContent: React.FC<{ roomId: string }> = ({ roomId }) => {
         onDepartureSubmit={(loc) => console.log('출발지 설정:', loc)}
         onCurrentLocationSearch={handleCurrentLocationSearch}
         showCurrentLocationButton={showCurrentLocationButton}
+        currentMapCenter={mapCenter ?? undefined}
       />
       <ChatSection onAuroraToggle={(a) => console.log('Aurora:', a)} />
     </div>

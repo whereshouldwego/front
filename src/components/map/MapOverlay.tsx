@@ -76,6 +76,12 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
     }
   }, [currentMapCenter, sendLatLngUpdate]);
 
+  // 🆕 이 지역에서 검색 처리 함수
+  const handleCurrentLocationSearch = useCallback(async () => {
+    if (!currentMapCenter) return;
+    onCurrentLocationSearch?.(currentMapCenter);
+  }, [currentMapCenter, onCurrentLocationSearch]);
+
   // 사용자 프로필 기능 제거로 인한 진입 버튼 제거됨
 
   const handleDepartureSubmit = () => {
@@ -90,14 +96,6 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
     setShowDepartureSearch(false);
     setDepartureLocation('');
     onDepartureCancel?.();
-  };
-
-  const handleCurrentLocationSearch = () => {
-    // 지도의 현재 중심점을 가져와서 검색 실행
-    // 실제 구현에서는 MapContainer에서 현재 중심점을 전달받아야 함
-    if (onCurrentLocationSearch && currentMapCenter) {
-      onCurrentLocationSearch(currentMapCenter);
-    }
   };
 
   // 프로필 클릭 핸들러

@@ -369,7 +369,7 @@ function toBackendEnsureBody(src: PlaceEnsureBody): EnsureBackendBody {
 // 통합 검색 API
 export const integratedSearchAPI = {
   // 키워드 검색 및 데이터 보강
-  searchAndEnrich: async (query: string, center?: MapCenter, opts?: { roomCode?: string; page?: number; size?: number }): Promise<Restaurant[]> => {
+  searchAndEnrich: async (query: string, center?: MapCenter, opts?: { roomCode?: string; page?: number; size?: number; saveToDb?: boolean }): Promise<Restaurant[]> => {
     try {
       // 1) 후보 제외
       let excluded = new Set<number>();
