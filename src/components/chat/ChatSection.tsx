@@ -70,7 +70,7 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
   }, [messages]);
 
   // 안내 배너 표시 여부 (방별 1회 닫기 유지)
-  const [showIntro, setShowIntro] = useState<boolean>(() => {
+  const [showIntro] = useState<boolean>(() => {
     const code = (window.location.pathname.match(/\/rooms\/(.+)$/) || [])[1] || '';
     const key = code ? `chat_intro_banner_hidden::${code}` : '';
     if (!key) return true;
