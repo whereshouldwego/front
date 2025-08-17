@@ -231,16 +231,8 @@ export interface ChatMessage {
   timestamp?: string;
 }
 
-// 추천 요청 타입
-export interface RecommendRequest {
-  userId: string;
-  location: string;
-  preferences?: {
-    categories?: string[];
-    priceRange?: 'low' | 'medium' | 'high';
-    rating?: number;
-  };
-  limit?: number;
+export interface SendOptions {
+  isAi?: boolean;
 }
 
 // 추천 응답 타입

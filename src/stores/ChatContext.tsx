@@ -10,7 +10,7 @@
 
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, SendOptions } from '../types';
 import { chatAPI } from '../lib/api';
 import SockJS from 'sockjs-client';
 import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs';
@@ -19,7 +19,7 @@ interface ChatContextType {
   messages: ChatMessage[];
   loading: boolean;
   error: string | null;
-  sendMessage: (message: string) => Promise<void>;
+  sendMessage: (message: string, options?: SendOptions) => Promise<void>;
   clearMessages: () => void;
   addMessage: (message: ChatMessage) => void;
 }
@@ -150,6 +150,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
       subscriptionRef.current = client.subscribe(destination, (msg: IMessage) => {
         try {
           const data = JSON.parse(msg.body) as ChatMessage;
+          const hasPlacesArray = Array.isArray((data as any).places);
+          const msgForUI: ChatMessage = data;
           if (!data.createdAt) (data as any).createdAt = new Date().toISOString();
           const idStr = String((data as any).id ?? '');
           // 중복 메시지 방지
@@ -158,10 +160,19 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
           setMessages((prev) => {
             // prev에 동일 ID가 있으면 무시
             if (idStr && prev.some((m) => String(m.id ?? '') === idStr)) return prev;
-            const next = [...prev, data];
+            const next = [...prev, msgForUI];
             saveCache(roomCode, next);
             return next;
           });
+            // 🆕 places가 존재 && 길이>0 → 추천 패널로 브로드캐스트
+          if (hasPlacesArray && (data as any).places!.length > 0) {
+            window.dispatchEvent(
+              new CustomEvent('recommend:payload', {
+                detail: { reply: data.content || '', items: (data as any).places },
+              }),
+            );
+          }
+
         } catch (e) {
           console.warn('[STOMP] invalid message', e);
         }
@@ -183,23 +194,48 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
     };
   }, [roomCode]);
 
-  const sendMessage = useCallback(async (message: string) => {
+  const sendMessage = useCallback(async (message: string, options?: {isAi?: boolean}) => {
     if (!message.trim() || !roomCode) return;
     const client = clientRef.current;
     if (!client || !client.connected) return;
 
-    const payload = {
-      roomCode: roomCode,
-      userId: userIdRef.current ? Number(userIdRef.current) : null,
-      username: localStorage.getItem('userNickname') || undefined,
-      content: message,
-    };
+    const payload = options?.isAi 
+    ? {
+        // AI 모드 - 백엔드 개발 후 수정 필요할 수 있음
+        username: localStorage.getItem('userNickname') || '익명',
+        content: message,
+        isAi: true,
+      }
+    : {
+        // 일반 채팅: 기존 형식 유지
+        roomCode: roomCode,
+        userId: userIdRef.current ? Number(userIdRef.current) : null,
+        username: localStorage.getItem('userNickname') || undefined,
+        content: message,
+        isAi: false,
+      };
+
+    if (options?.isAi) {
+      console.log('🤖 AI 모드 요청 전송:', {
+        message: message,
+        payload: payload,
+        timestamp: new Date().toISOString(),
+        destination: `/ws/chat.${roomCode}`
+      });
+    } else {
+      console.log('일반 채팅 메시지 전송:', {
+        message: message,
+        payload: payload,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     try {
       setLoading(true);
       client.publish({
-        destination: `/ws/chat.${roomCode}`,
+        destination: `/ws/chat.${roomCode}`, // ws->app 안되면 변경
         body: JSON.stringify(payload),
+        // headers: { 'content-type': 'application/json' },
       });
     } catch (e) {
       console.error('[STOMP publish error]', e);
