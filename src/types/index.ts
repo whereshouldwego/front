@@ -1,4 +1,3 @@
-
 // 공통 타입 정의
 
 // 사이드바 버튼 타입
@@ -70,6 +69,7 @@ export interface Restaurant {
   purpose?: string[];           // 목적 태그
 }
 
+
 export function placeDetailToRestaurant(d: PlaceDetail): Restaurant {
   console.log('[DEBUG] placeDetailToRestaurant 입력 (백엔드 PlaceResponse):', {
     id: d.id,
@@ -104,7 +104,6 @@ export function placeDetailToRestaurant(d: PlaceDetail): Restaurant {
   console.log('[DEBUG] placeDetailToRestaurant 출력:', result);
   return result;
 }
-
 // ===== 카카오맵 관련 타입들 =====
 // 가장 필요한 필드만 발췌
 export interface KakaoDocument {
@@ -230,25 +229,10 @@ export interface ChatMessage {
   createdAt: string;     // ISO
   type?: 'user' | 'bot';
   timestamp?: string;
-  places?: Restaurant[];
-  meta?: { kind?: 'normal' | 'recommendation' | 'recommendation_req' };
 }
 
-/** ChatContext로 보낼 옵션 (isAi 추가) */
 export interface SendOptions {
   isAi?: boolean;
-}
-
-// 추천 요청 타입
-export interface RecommendRequest {
-  userId: string;
-  location: string;
-  preferences?: {
-    categories?: string[];
-    priceRange?: 'low' | 'medium' | 'high';
-    rating?: number;
-  };
-  limit?: number;
 }
 
 // 추천 응답 타입

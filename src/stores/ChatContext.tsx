@@ -151,9 +151,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
         try {
           const data = JSON.parse(msg.body) as ChatMessage;
           const hasPlacesArray = Array.isArray((data as any).places);
-          const msgForUI: ChatMessage = hasPlacesArray
-            ? { ...data, username: '맛돌', meta: { kind: 'recommendation' } }
-            : data;
+          const msgForUI: ChatMessage = data;
           if (!data.createdAt) (data as any).createdAt = new Date().toISOString();
           const idStr = String((data as any).id ?? '');
           // 중복 메시지 방지
@@ -204,7 +202,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
     const payload = options?.isAi 
     ? {
         // AI 모드 - 백엔드 개발 후 수정 필요할 수 있음
-        userId: userIdRef.current ? Number(userIdRef.current) : null,
+        username: localStorage.getItem('userNickname') || '익명',
         content: message,
         isAi: true,
       }
@@ -225,7 +223,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children, roomCode }
         destination: `/ws/chat.${roomCode}`
       });
     } else {
-      console.log('�� 일반 채팅 메시지 전송:', {
+      console.log('일반 채팅 메시지 전송:', {
         message: message,
         payload: payload,
         timestamp: new Date().toISOString()

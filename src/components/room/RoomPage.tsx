@@ -2,13 +2,14 @@
  * RoomPage.tsx
  *
  * 요구사항 반영:
- * - ✅ 검색핀은 검색 패널에서만 표시
- * - ✅ 후보/찜 핀은 사용자가 삭제할 때까지 항상 표시
- * - ✅ 후보(useCandidates)의 items를 지도 마커로 변환 후 기존 마커와 병합(같은 placeId면 후보가 우선)
- * - ✅ [추가] 후보 ID/객체 로컬 캐시(메모리 + localStorage)로 패널 전환 공백 제거
- * - ✅ [추가] 후보 패널에서 마커 변경 시 MapContainer 강제 리마운트로 즉시 반영
+ * - ✅ 후보 패널(useCandidates)의 items를 받아 지도 마커로 변환
+ * - ✅ 검색/찜/후보 마커 병합 시 같은 placeId는 후보가 우선
+ * - ✅ MapContainer에는 최종 병합된 markers만 전달
  *
- * ※ 그 외 기능/코드는 수정하지 않음
+ * ★ [변경 요약]
+ * - 카카오 로그인 토큰이 있으면(= userType==='kakao' && accessToken 존재) 게스트 발급(/api/auth/guest) 절대 호출하지 않고,
+ *   곧바로 Authorization: Bearer <kakaoToken> 으로 방 입장 API 호출.
+ * - 게스트 중복 생성 방지 로직(StrictMode 2회 마운트 대비)은 그대로 유지하되, 카카오 분기에서는 비활성.
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -88,13 +89,50 @@ const RoomPage: React.FC = () => {
       const joinedKey = `joined::${id}`;
       const firstEntryInThisTab = sessionStorage.getItem(joinedKey) !== '1';
 
+      // ★ [변경] StrictMode(개발모드)에서 useEffect 2번 문제로 인한 게스트 중복 발급 방지 키
+      const authInFlightKey = `guestAuthInFlight::${id}`;
+
       // 현재 로컬 상태
       let token = localStorage.getItem('accessToken') || '';
       let uid = localStorage.getItem('userId') || '';
       let nick = localStorage.getItem('userNickname') || '';
       const bound = localStorage.getItem('guestBoundRoomCode') || '';
+      const userType = localStorage.getItem('userType') || '';
+
+      // ★ [변경] 카카오 로그인 여부(카카오면 게스트 발급 금지)
+      const isKakao = userType === 'kakao' && !!token; // ← accessToken 존재까지 확인
+
+      // 게스트 자격 보유 여부(게스트만 의미 있음)
+      const hasLocalForThisRoom = !isKakao && !!token && bound === id; // ★ [변경] isKakao면 항상 false
+
+      // ★ [변경] (게스트 전용) 첫 인스턴스가 토큰을 저장할 때까지 대기
+      const waitForGuestToken = async (roomId: string, timeoutMs = 2000, stepMs = 100) => {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          const t = localStorage.getItem('accessToken') || '';
+          const b = localStorage.getItem('guestBoundRoomCode') || '';
+          if (t && b === roomId) {
+            token = t;
+            uid = localStorage.getItem('userId') || '';
+            nick = localStorage.getItem('userNickname') || '';
+            return;
+          }
+          await new Promise(res => setTimeout(res, stepMs));
+        }
+      };
 
       const ensureGuestAuth = async (forceNew: boolean) => {
+        if (isKakao) return; // ★ [변경] 카카오면 게스트 발급 절대 금지
+
+        // (게스트) 다른 마운트가 발급 중이면 대기만
+        if (sessionStorage.getItem(authInFlightKey) === '1') {
+          await waitForGuestToken(id);
+          return;
+        }
+
+        // (게스트) 내가 발급 시작
+        sessionStorage.setItem(authInFlightKey, '1');
+
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/guest?roomCode=${id}`, {
           method: 'POST',
           credentials: forceNew ? 'omit' : 'include',
@@ -123,7 +161,7 @@ const RoomPage: React.FC = () => {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${token}`, // ★ [중요] 카카오/게스트 공통 — 해당 토큰으로 참여
             'Content-Type': 'application/json',
           }
         });
@@ -146,10 +184,12 @@ const RoomPage: React.FC = () => {
         if (joined?.color) localStorage.setItem('userColor', joined.color);
       };
 
-      const hasLocalForThisRoom = !!token && !!uid && bound === id;
-
+      /* ===== 실행 흐름 ===== */
       if (firstEntryInThisTab) {
-        if (hasLocalForThisRoom) {
+        if (isKakao) {
+          // ★ [변경] 카카오: 게스트 발급 없이 바로 참여
+          await joinRoom();
+        } else if (hasLocalForThisRoom) {
           await joinRoom();
         } else {
           await ensureGuestAuth(true);
@@ -157,7 +197,10 @@ const RoomPage: React.FC = () => {
         }
         sessionStorage.setItem(joinedKey, '1');
       } else {
-        if (!token || !uid || bound !== id) {
+        if (isKakao) {
+          // ★ [변경] 카카오: 재진입도 항상 카카오 토큰으로 참여
+          await joinRoom();
+        } else if (!token || bound !== id) {
           await ensureGuestAuth(false);
           await joinRoom();
           sessionStorage.setItem(joinedKey, '1');
@@ -289,14 +332,9 @@ const RoomPage: React.FC = () => {
   );
 };
 
-/* === 이하 지도/찜/검색/후보 로직 === */
+/* === 이하 지도/찜/검색 로직 (변경 없음) === */
 const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
-  const { 
-    searchResults, setMapCenter, performSearch, 
-    selectedRestaurantId, mapCenter, setActivePanel,
-    activePanel,
-  } = useSidebar();
-
+  const { searchResults, setMapCenter, performSearch, selectedRestaurantId, mapCenter, setActivePanel } = useSidebar();
   const { sendCursorPosition, otherUsersPositions } = useWebSocket();
 
   const { favorites, favoriteIndex } = useRestaurantStore();
@@ -305,39 +343,13 @@ const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
   const [lastSearchCenter] = useState<MapCenter | null>(null);
 
-  // 검색 패널일 때만 검색핀 포함
-  const isSearchPanel = useMemo(() => {
-    const key = String(activePanel || '').toLowerCase();
-    return key === 'search';
-  }, [activePanel]);
-
-  /* (유지) 방별 후보 삭제 tombstone - 읽기/필터만 사용 */
-  const TOMB_EVENT = 'candidate:tombstones-changed';
-  const tombKey = (room: string) => `__candidate_tombstones__::${room}`;
-  const readTombs = (room: string): Set<number> => {
-    try {
-      const raw = localStorage.getItem(tombKey(room));
-      const arr: any[] = raw ? JSON.parse(raw) : [];
-      return new Set(arr.map((v) => Number(v)).filter((v) => Number.isFinite(v)));
-    } catch { return new Set(); }
-  };
-  const [candidateTombstones, setCandidateTombstones] = useState<Set<number>>(() => readTombs(roomCode));
-  useEffect(() => { setCandidateTombstones(readTombs(roomCode)); }, [roomCode]);
-  useEffect(() => {
-    const onChange = (e: any) => { if (!e?.detail || e.detail.roomCode === roomCode) setCandidateTombstones(readTombs(roomCode)); };
-    const onStorage = (e: StorageEvent) => { if (e.key && e.key === tombKey(roomCode)) setCandidateTombstones(readTombs(roomCode)); };
-    window.addEventListener(TOMB_EVENT, onChange);
-    window.addEventListener('storage', onStorage);
-    return () => {
-      window.removeEventListener(TOMB_EVENT, onChange);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, [roomCode]);
-
   const handleCurrentLocationSearch = useCallback(async (center: MapCenter) => {
     try {
       setActivePanel('search');
-      await performSearch({ query: '', center });
+      await performSearch({
+        query: '',
+        center: center,
+      });
     } catch (error) {
       console.error('이 지역에서 검색 실패:', error);
     }
@@ -376,49 +388,22 @@ const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
     });
   }, [favorites, favoriteIndex, searchResults]);
 
-  /* ✅ [추가] 후보 ID/객체 캐시 (영속) — 패널 이동/일시 공백에도 후보 핀 유지 */
-  const cidKey = (room: string) => `__candidate_ids__::${room}`;                 // ✅ [추가] 후보 ID set 저장 키
-  const readCidSet = (room: string): Set<number> => {                            // ✅ [추가] 로딩
-    try {
-      const raw = localStorage.getItem(cidKey(room));
-      const arr: any[] = raw ? JSON.parse(raw) : [];
-      return new Set(arr.map((v) => Number(v)).filter(Number.isFinite));
-    } catch { return new Set(); }
-  };
-  const writeCidSet = (room: string, set: Set<number>) => {                      // ✅ [추가] 저장
-    try {
-      localStorage.setItem(cidKey(room), JSON.stringify(Array.from(set)));
-    } catch {}
-  };
-  const [stickyCandidateById, setStickyCandidateById] = useState<Record<string, Restaurant>>({}); // ✅ [추가] 마지막으로 본 후보 Restaurant 캐시
+  const unionRestaurants: Restaurant[] = useMemo(() => {
+    const map = new Map<string, Restaurant>();
+    (searchResults ?? []).forEach((r) => { if (r?.placeId != null) map.set(String(r.placeId), r); });
+    Object.values(stickyFavoriteById).forEach((r) => { if (r?.placeId != null) map.set(String(r.placeId), r); });
+    return Array.from(map.values());
+  }, [searchResults, stickyFavoriteById]);
 
-  /* 검색/찜 소스 분리 */
-  const searchRestaurants: Restaurant[] = useMemo(
-    () => (isSearchPanel ? (searchResults ?? []) : []),
-    [isSearchPanel, searchResults]
-  );
-  const favoriteRestaurants: Restaurant[] = useMemo(
-    () => Object.values(stickyFavoriteById),
-    [stickyFavoriteById]
+  const favoriteIdSet = useMemo(
+    () => new Set<number>(Array.from(favorites ?? []).map((v: any) => Number(v))),
+    [favorites]
   );
 
   /* 검색/찜 마커 (좌표 방어적 파싱 + lat/lng 스왑) */
   const mapMarkers = useMemo<(MapMarker & { isFavorite?: boolean })[]>(() => {
     const toNum = (v: any) => (v == null ? null : Number(v));
-
-    const baseRestaurants: Restaurant[] = [
-      ...searchRestaurants,           // 검색핀: 검색 패널에서만
-      ...favoriteRestaurants,         // 찜핀: 항상
-    ];
-
-    const byId = new Map<number, Restaurant>();
-    for (const r of baseRestaurants) {
-      const pid = toNum((r as any)?.placeId ?? (r as any)?.id ?? (r as any)?.place?.placeId ?? (r as any)?.place?.id);
-      if (!pid) continue;
-      byId.set(pid, r);
-    }
-
-    return Array.from(byId.values())
+    return (unionRestaurants ?? [])
       .map((r) => {
         const pid = toNum((r as any)?.placeId ?? (r as any)?.id ?? (r as any)?.place?.placeId ?? (r as any)?.place?.id);
         const rawLat = toNum((r as any)?.location?.lat ?? (r as any)?.lat ?? (r as any)?.place?.lat ?? (r as any)?.place?.y);
@@ -427,162 +412,70 @@ const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
 
         return {
           id: String(pid),
-          position: { lat: rawLng as number, lng: rawLat as number }, // 카카오 좌표계(y=lat, x=lng) 대비 스왑
+          position: { lat: rawLng as number, lng: rawLat as number }, // 좌표 스왑
           title: (r as any)?.name ?? (r as any)?.place?.name ?? `가게 ${pid}`,
           category: (r as any)?.category ?? undefined,
           restaurant: r,
-          isFavorite: favoriteRestaurants.some(fr => Number((fr as any)?.placeId ?? (fr as any)?.id) === pid),
+          isFavorite: favoriteIdSet.has(Number(pid)),
         } as MapMarker & { isFavorite?: boolean };
       })
       .filter(Boolean) as (MapMarker & { isFavorite?: boolean })[];
-  }, [searchRestaurants, favoriteRestaurants]);
+  }, [unionRestaurants, favoriteIdSet]);
 
   /* 후보 목록 훅 */
   const { items: candidateItems, optimisticItems: optimisticCandidateItems } = useCandidates(roomCode);
 
-  /* ✅ [추가] 후보 ID 집합(가장 신선한 순서로): optimistic > items > localStorage */
-  const candidateIdSet = useMemo(() => {
-    const s = new Set<number>();
-    const src = (optimisticCandidateItems && optimisticCandidateItems.length > 0)
-      ? optimisticCandidateItems
-      : (candidateItems ?? []);
-    for (const it of src) s.add(Number((it as any).placeId ?? (it as any).id));
-    if (s.size === 0) {
-      // 마지막으로 저장된 후보 ID로 보강
-      for (const id of readCidSet(roomCode)) s.add(id);
-    }
-    // tombstone은 항상 제외(사용자가 삭제했으면 끝)
-    for (const id of Array.from(s)) {
-      if (candidateTombstones.has(id)) s.delete(id);
-    }
-    return s;
-  }, [roomCode, optimisticCandidateItems, candidateItems, candidateTombstones]);
-
-  /* ✅ [추가] 후보 ID/객체 캐시 갱신: 후보 목록이 바뀔 때마다 저장(삭제 제외) */
-  useEffect(() => {
-    const ids = new Set<number>();
-    const src = (optimisticCandidateItems && optimisticCandidateItems.length > 0)
-      ? optimisticCandidateItems
-      : (candidateItems ?? []);
-    const nextSticky = { ...stickyCandidateById };
-    for (const it of src) {
-      const pid = Number((it as any).placeId ?? (it as any).id);
-      if (!Number.isFinite(pid) || candidateTombstones.has(pid)) continue;
-      ids.add(pid);
-      // 좌표가 있는 것만 캐시
-      const lat = Number((it as any)?.location?.lat ?? (it as any)?.lat ?? (it as any)?.place?.lat ?? (it as any)?.place?.y);
-      const lng = Number((it as any)?.location?.lng ?? (it as any)?.lng ?? (it as any)?.place?.lng ?? (it as any)?.place?.x);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        nextSticky[String(pid)] = (it as any);
-      }
-    }
-    if (Object.keys(nextSticky).length !== Object.keys(stickyCandidateById).length) {
-      setStickyCandidateById(nextSticky);
-    }
-    // 영속 저장
-    writeCidSet(roomCode, ids);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomCode, optimisticCandidateItems, candidateItems, candidateTombstones]);
-
-  /* ✅ [수정] 후보 마커 생성(항상 포함):
-     1) 후보 목록(source) → 마커
-     2) 검색결과 중 candidateIdSet에 포함된 것 → 보강
-     3) stickyCandidateById(캐시) 중 candidateIdSet에 포함된 것 → 추가 보강
-     + tombstone 필터, placeId 기준 중복 제거
-     ※ 이렇게 하면 패널 이동/일시 공백에도 후보 핀이 계속 보임 */
+  /* 후보 마커 생성 */
   const candidateMarkers = useMemo<(MapMarker & { isCandidate?: boolean })[]>(() => {
     const toNum = (v: any) => (v == null ? null : Number(v));
 
-    const src =
+    const base =
       optimisticCandidateItems &&
       optimisticCandidateItems !== candidateItems &&
       optimisticCandidateItems.length > 0
         ? optimisticCandidateItems
         : candidateItems;
 
-    const byId = new Map<number, MapMarker & { isCandidate: boolean }>();
+    return (base ?? [])
+      .map((it: any) => {
+        const pid = toNum(it?.placeId ?? it?.id ?? it?.place?.placeId ?? it?.place?.id);
+        const rawLat = toNum(it?.location?.lat ?? it?.lat ?? it?.place?.lat ?? it?.place?.y);
+        const rawLng = toNum(it?.location?.lng ?? it?.lng ?? it?.place?.lng ?? it?.place?.x);
+        if (!pid || !Number.isFinite(rawLat) || !Number.isFinite(rawLng)) return null;
 
-    // 1) 후보 목록 → 마커
-    for (const it of (src ?? [])) {
-      const pid = toNum((it as any)?.placeId ?? (it as any)?.id ?? (it as any)?.place?.placeId ?? (it as any)?.place?.id);
-      if (!pid || candidateTombstones.has(pid)) continue;
-      const rawLat = toNum((it as any)?.location?.lat ?? (it as any)?.lat ?? (it as any)?.place?.lat ?? (it as any)?.place?.y);
-      const rawLng = toNum((it as any)?.location?.lng ?? (it as any)?.lng ?? (it as any)?.place?.lng ?? (it as any)?.place?.x);
-      if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) continue;
-      byId.set(pid, {
-        id: String(pid),
-        position: { lat: rawLng as number, lng: rawLat as number },
-        title: (it as any)?.name ?? (it as any)?.place?.name ?? `후보 ${pid}`,
-        restaurant: it as any,
-        isCandidate: true,
-      });
-    }
-
-    // 2) 검색결과에서 candidateIdSet에 포함된 것 → 보강(좌표가 있으면)
-    for (const r of (searchResults ?? [])) {
-      const pid = toNum((r as any)?.placeId ?? (r as any)?.id ?? (r as any)?.place?.placeId ?? (r as any)?.place?.id);
-      if (!pid || !candidateIdSet.has(pid) || candidateTombstones.has(pid)) continue;
-      if (!byId.has(pid)) {
-        const rawLat = toNum((r as any)?.location?.lat ?? (r as any)?.lat ?? (r as any)?.place?.lat ?? (r as any)?.place?.y);
-        const rawLng = toNum((r as any)?.location?.lng ?? (r as any)?.lng ?? (r as any)?.place?.lng ?? (r as any)?.place?.x);
-        if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) continue;
-        byId.set(pid, {
+        return {
           id: String(pid),
-          position: { lat: rawLng as number, lng: rawLat as number },
-          title: (r as any)?.name ?? (r as any)?.place?.name ?? `후보 ${pid}`,
-          restaurant: r as any,
+          position: { lat: rawLng, lng: rawLat },
+          title: it?.name ?? it?.place?.name ?? `후보 ${pid}`,
+          restaurant: it,
           isCandidate: true,
-        });
-      }
-    }
+        } as MapMarker & { isCandidate: boolean };
+      })
+      .filter(Boolean) as (MapMarker & { isCandidate: boolean })[];
+  }, [candidateItems, optimisticCandidateItems]);
 
-    // 3) stickyCandidateById(캐시)로 추가 보강
-    for (const [k, r] of Object.entries(stickyCandidateById)) {
-      const pid = toNum(k);
-      if (!pid || !candidateIdSet.has(pid) || candidateTombstones.has(pid)) continue;
-      if (!byId.has(pid)) {
-        const rawLat = toNum((r as any)?.location?.lat ?? (r as any)?.lat ?? (r as any)?.place?.lat ?? (r as any)?.place?.y);
-        const rawLng = toNum((r as any)?.location?.lng ?? (r as any)?.lng ?? (r as any)?.place?.lng ?? (r as any)?.place?.x);
-        if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) continue;
-        byId.set(pid, {
-          id: String(pid),
-          position: { lat: rawLng as number, lng: rawLat as number },
-          title: (r as any)?.name ?? (r as any)?.place?.name ?? `후보 ${pid}`,
-          restaurant: r as any,
-          isCandidate: true,
-        });
-      }
-    }
-
-    return Array.from(byId.values());
-  }, [candidateItems, optimisticCandidateItems, candidateTombstones, searchResults, candidateIdSet, stickyCandidateById]);
-
-  /* 최종 병합: 후보가 우선 덮어쓰기 (같은 id면 후보 속성으로 덮음) */
+  /* 최종 병합: 후보 우선 */
   const finalMapMarkers = useMemo(() => {
     const byId = new Map<string, MapMarker & { isFavorite?: boolean; isCandidate?: boolean }>();
-    for (const m of mapMarkers) byId.set(String(m.id), m); // 1) 검색/찜
-    for (const c of candidateMarkers) {                    // 2) 후보로 덮어쓰기
+    for (const m of mapMarkers) byId.set(String(m.id), m);
+    for (const c of candidateMarkers) {
       const prev = byId.get(String(c.id));
       byId.set(String(c.id), { ...prev, ...c, isCandidate: true });
     }
     return Array.from(byId.values());
   }, [mapMarkers, candidateMarkers]);
 
-  /* ✅ [추가] 후보 패널에서 마커 변경 시 강제 리마운트 키 */
-  const isCandidatePanel = useMemo(() => {
-    const k = String(activePanel || '').toLowerCase();
-    return k === 'candidate' || k === 'candidates';
-  }, [activePanel]);
-  const mapRemountKey = useMemo(() => {
-    return isCandidatePanel ? `cand-${candidateMarkers.length}` : `all`;
-  }, [isCandidatePanel, candidateMarkers.length]);
-
-  useEffect(() => {
-    console.log('[panel]', activePanel, 'isSearchPanel:', isSearchPanel);
-    console.log('[candidate] ids:', Array.from(candidateIdSet));
-    console.log('[candidate] items/optimistic:', candidateItems?.length, optimisticCandidateItems?.length);
-    console.log('[finalMapMarkers] length:', finalMapMarkers.length);
-  }, [activePanel, isSearchPanel, candidateIdSet, candidateItems, optimisticCandidateItems, finalMapMarkers]);
+  const handleMapMoved = useCallback((center: MapCenter) => {
+    setMapCenter(center);
+    const threshold = 0.001;
+    if (
+      !lastSearchCenter ||
+      Math.abs(center.lat - lastSearchCenter.lat) > threshold ||
+      Math.abs(center.lng - lastSearchCenter.lng) > threshold
+    ) {
+      setShowCurrentLocationButton(true);
+    }
+  }, [lastSearchCenter, setMapCenter]);
 
   const mapEventHandlers: MapEventHandlers = {
     onMapClick: (lat, lng) => console.log('지도 클릭:', lat, lng, '방:', roomCode),
@@ -598,20 +491,9 @@ const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
       style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh' }}
     >
       <MapContainer
-        key={mapRemountKey} // ✅ [추가] 후보 패널에서 마커 수 변동 시 즉시 반영
         markers={finalMapMarkers as any}
         eventHandlers={mapEventHandlers}
-        onMapMoved={(center) => {
-          setMapCenter(center);
-          const threshold = 0.001;
-          if (
-            !lastSearchCenter ||
-            Math.abs(center.lat - lastSearchCenter.lat) > threshold ||
-            Math.abs(center.lng - lastSearchCenter.lng) > threshold
-          ) {
-            setShowCurrentLocationButton(true);
-          }
-        }}
+        onMapMoved={handleMapMoved}
         onCursorMove={(pos) => sendCursorPosition(pos)}
         cursorPositions={[...otherUsersPositions.entries()].map(([id, position]) => ({ id, position }))}
         selectedMarkerId={selectedRestaurantId ?? undefined}

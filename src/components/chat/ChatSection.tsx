@@ -20,6 +20,7 @@ import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { useChat } from '../../stores/ChatContext'; // Updated import
 import type { ChatMessage } from '../../types';
 import styles from './ChatSection.module.css';
+import { colorFromString } from '../../utils/color';
 import { useSidebar } from '../../stores/SidebarContext';
 
 interface ChatSectionProps {
@@ -74,6 +75,9 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
           const isMine = String(msg.userId ?? '') === String(selfUserId);
           const createdAt = msg.createdAt || msg.timestamp || new Date().toISOString();
           const key = msg.id ? `${msg.id}` : `${createdAt}|${idx}`;
+          const displayName = msg.username || '익명';
+          const userIdentifier = String(msg.userId ?? displayName);
+          
           return (
           <div
             key={key}
@@ -81,14 +85,24 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
               isMine ? styles.userMessage : styles.botMessage
             }`}
           >
-            <div className={styles.messageContent}>
-              <div className={styles.messageMeta}>
-                <span className={styles.nick}>{msg.username || 'ai 추천 요청'}</span>
-                <span className={styles.messageTime}>
-                  {formatTime(new Date(createdAt))}
-                </span>
+            {/* 사용자 아바타와 이름 (userPresence와 동일한 스타일) */}
+            <div className={styles.userItem}>
+              <div className={styles.userAvatar} style={{ backgroundColor: colorFromString(userIdentifier) }}>
+                <svg className={styles.userIcon} viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
               </div>
-              <p className={styles.messageText}>{msg.content}</p>
+              <span className={styles.userNickname}>{displayName}</span>
+            </div>
+            
+            {/* 메시지 버블 (시간 포함) */}
+            <div className={styles.messageGroup}>
+              <div className={styles.messageContent}>
+                <p className={styles.messageText}>{msg.content}</p>
+                <div className={styles.messageTime}>
+                  {formatTime(new Date(createdAt))}
+                </div>
+              </div>
             </div>
           </div>
           );
@@ -96,11 +110,21 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
         
         {loading && (
           <div className={`${styles.message} ${styles.botMessage}`}>
-            <div className={styles.messageContent}>
-              <div className={styles.typingIndicator}>
-                <span></span>
-                <span></span>
-                <span></span>
+            <div className={styles.userItem}>
+              <div className={styles.userAvatar} style={{ backgroundColor: '#999' }}>
+                <svg className={styles.userIcon} viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </div>
+              <span className={styles.userNickname}>입력중...</span>
+            </div>
+            <div className={styles.messageGroup}>
+              <div className={styles.messageContent}>
+                <div className={styles.typingIndicator}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
               </div>
             </div>
           </div>
@@ -132,13 +156,6 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
           className={styles.messageInput}
           disabled={loading}
         />
-        {/* <button
-          type="submit"
-          className={styles.sendButton}
-          disabled={!inputValue.trim() || loading}
-        >
-          ➤
-        </button> */}
       </form>
     </div>
   );
