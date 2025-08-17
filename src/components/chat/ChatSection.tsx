@@ -77,20 +77,13 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
     return localStorage.getItem(key) !== '1';
   });
 
-  const handleHideIntro = () => {
-    const code = (window.location.pathname.match(/\/rooms\/(.+)$/) || [])[1] || '';
-    if (code) {
-      try { localStorage.setItem(`chat_intro_banner_hidden::${code}`, '1'); } catch {}
-    }
-    setShowIntro(false);
-  };
 
   return (
     <div className={styles.chatSection}>
       {/* 메시지 목록 */}
       <div className={styles.messagesContainer} ref={listRef}>
         {showIntro && (
-          <div className={styles.introBanner} onClick={handleHideIntro} role="button" title="클릭하여 닫기">
+          <div className={styles.introBanner} role="button" title="클릭하여 닫기">
             <div className={styles.introTitle}>맛돌이 사용법 안내</div>
             <p className={styles.introText}>
 안녕하세요! 저는 맛돌이 입니다.
