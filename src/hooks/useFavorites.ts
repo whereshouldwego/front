@@ -23,7 +23,7 @@ export function useFavorites(userId?: number) {
     setLoading(true);
     setError(null);
     try {
-      const res = await favoriteAPI.listByUser(uid);
+      const res = await favoriteAPI.listByUser();
       if (!res.success) throw new Error(res.error.message);
 
       // 서버가 준 favorites: FavoriteInfo[] → place 상세 보강

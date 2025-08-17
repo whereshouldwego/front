@@ -23,8 +23,8 @@ const DEFAULT_CENTER: MapCenter = { lat: 36.35369004484255, lng: 127.34132312554
 
 interface Props {
   userId?: number;
-  roomCode?: string; // 현재는 내부에서 사용하지 않지만, 시그니처 유지(호환성)
-  center?: MapCenter; // 상위에서 내려줄 경우 초기 검색에 사용 가능
+  roomCode?: string;
+  center?: MapCenter;
 }
 
 const SearchPanel: React.FC<Props> = ({ userId, center, roomCode }) => {
