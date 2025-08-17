@@ -218,8 +218,15 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const delay = new Promise<void>(res => setTimeout(res, 1000));
       const fetchPromise = (lastQuery?.query ?? '').trim()
-        ? integratedSearchAPI.searchAndEnrich(lastQuery!.query, center, { page: nextPage, size: pageSize } as any)
-        : integratedSearchAPI.searchByLocation(center, { page: nextPage, size: pageSize } as any);
+        ? integratedSearchAPI.searchAndEnrich(
+            lastQuery!.query,
+            center,
+            { page: nextPage, size: pageSize, saveToDb: true } as any // 추가
+          )
+        : integratedSearchAPI.searchByLocation(
+            center,
+            { page: nextPage, size: pageSize, saveToDb: true } as any
+          );
 
       const [data] = await Promise.all([fetchPromise, delay]) as [Restaurant[], void];
 
