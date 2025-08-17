@@ -60,14 +60,34 @@ class CandidateClientSingleton {
   private client: Client | null = null;
   private subscription: StompSubscription | null = null;
   private currentRoomCode: string | null = null;
-  private onUpdate: ((items: RestaurantWithStatus[]) => void) | null = null;
+  private listeners: Set<(items: RestaurantWithStatus[]) => void> = new Set();
+  private lastItems: RestaurantWithStatus[] = [];
   private pendingFrames: { destination: string; body: string }[] = [];
 
-  init(roomCode: string, onUpdate: (items: RestaurantWithStatus[]) => void) {
-    this.onUpdate = onUpdate;
-    if (this.currentRoomCode === roomCode && this.client?.connected) return;
-    this.currentRoomCode = roomCode;
-    this.connect(roomCode);
+  /**
+   * Initialize connection (or switch room) and register a listener.
+   * Returns an unsubscribe function to remove the listener.
+   */
+  init(roomCode: string, onUpdate: (items: RestaurantWithStatus[]) => void): () => void {
+    // Register listener first so it can receive immediate snapshot
+    const unsubscribe = this.addListener(onUpdate);
+    if (this.currentRoomCode !== roomCode || !this.client?.connected) {
+      this.currentRoomCode = roomCode;
+      this.lastItems = [];
+      this.connect(roomCode);
+    }
+    return unsubscribe;
+  }
+
+  /** Add a listener and immediately emit last snapshot if available */
+  private addListener(fn: (items: RestaurantWithStatus[]) => void): () => void {
+    this.listeners.add(fn);
+    if (this.lastItems && this.lastItems.length > 0) {
+      try { fn(this.lastItems); } catch {}
+    }
+    return () => {
+      try { this.listeners.delete(fn); } catch {}
+    };
   }
 
   private connect(roomCode: string) {
@@ -149,8 +169,11 @@ class CandidateClientSingleton {
         );
         useRestaurantStore.setState({ candidates: new Set(ids), voteCounts: counts, votedRestaurants: votedSet });
 
-        // Notify hook/component
-        this.onUpdate?.(items);
+        // Cache and broadcast to all listeners
+        this.lastItems = items;
+        for (const listener of Array.from(this.listeners)) {
+          try { listener(items); } catch {}
+        }
       } catch (e) {
         console.error('Failed to parse candidate update:', e);
       }
