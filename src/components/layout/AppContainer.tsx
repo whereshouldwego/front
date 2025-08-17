@@ -63,14 +63,19 @@ const NotFoundPage: React.FC = () => {
   );
 };
 
-// 라우팅 포함 앱 엔트리 (원본 유지)
+// 라우팅 포함 앱 엔트리
 const AppContainer: React.FC = () => {
   return (
     <Router>
       <div className="App">
         <Routes>
+          {/* 메인 */}
           <Route path="/" element={<MainPage />} />
+          {/* [추가] 카카오 OAuth 콜백 라우트: InitialScreen을 렌더링해 콜백 useEffect가 실행되도록 함 */}
+          <Route path="/auth/kakao/callback" element={<MainPage />} /> {/* ★ 추가 */}
+          {/* 방 페이지 */}
           <Route path="/rooms/:roomCode" element={<RoomPage />} />
+          {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>

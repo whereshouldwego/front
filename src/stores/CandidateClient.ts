@@ -6,20 +6,21 @@ import { useRestaurantStore } from './RestaurantStore';
 
 type CandidateActionType = 'ADD_PLACE' | 'REMOVE_PLACE' | 'ADD_VOTE' | 'REMOVE_VOTE';
 
-interface CandidatePlaceResponse {
-  placeId: number;
-  placeName?: string | null;
-  kakaoUrl?: string | null;
-  x?: string | null;
-  y?: string | null;  
-  address?: string | null;
-  roadAddress?: string | null;
-  phone?: string | null;
-  categoryDetail?: string | null;
-  menu?: string[] | null;
-  mood?: string[] | null;
-  feature?: string[] | null;
-  purpose?: string[] | null;
+export interface CandidatePlaceResponse {
+  id: number;                    // 백엔드: id (Long)
+  name?: string | null;          // 백엔드: name (String)
+  kakaoUrl?: string | null;      // 백엔드: kakaoUrl (String)
+  lat?: number | null;           // 백엔드: lat (Double)
+  lng?: number | null;           // 백엔드: lng (Double)
+  address?: string | null;       // 백엔드: address (String)
+  roadAddress?: string | null;   // 백엔드: roadAddress (String)
+  phone?: string | null;         // 백엔드: phone (String)
+  categoryName?: string | null;  // 백엔드: categoryName (String)
+  categoryDetail?: string | null;// 백엔드: categoryDetail (String)
+  menu?: string[] | null;        // 백엔드: menu (List<String>)
+  mood?: string[] | null;        // 백엔드: mood (List<String>)
+  feature?: string[] | null;     // 백엔드: feature (List<String>)
+  purpose?: string[] | null;     // 백엔드: purpose (List<String>)
 }
 
 interface CandidateMessageResponseDto {
@@ -29,23 +30,25 @@ interface CandidateMessageResponseDto {
   voteCount: number;
 }
 
-function candidateToRestaurant(p: CandidatePlaceResponse): RestaurantWithStatus {
+export function candidateToRestaurant(p: CandidatePlaceResponse): RestaurantWithStatus {
+  console.log('[candidateToRestaurant] 백엔드 PlaceResponse 데이터:', p);
+  
   return {
-    placeId: p.placeId,
-    name: p.placeName ?? `place #${p.placeId}`,
-    category: p.categoryDetail ?? '',
+    placeId: p.id,                                    // id → placeId
+    name: p.name ?? `place #${p.id}`,                // name → name
+    category: p.categoryDetail ?? null,              // categoryDetail (null 가능)
     phone: p.phone ?? undefined,
     location: {
-      lat: typeof p.y === 'string' ? parseFloat(p.y) : Number.NaN,
-      lng: typeof p.x === 'string' ? parseFloat(p.x) : Number.NaN,
+      lat: p.lat ?? 0,                               // lat (이미 number)
+      lng: p.lng ?? 0,                               // lng (이미 number)
       address: p.address ?? undefined,
       roadAddress: p.roadAddress ?? undefined,
     },
     place_url: p.kakaoUrl ?? undefined,
-    menu: p.menu ?? undefined,
-    mood: p.mood ?? undefined,
-    feature: p.feature ?? undefined,
-    purpose: p.purpose ?? undefined,
+    menu: p.menu ?? [],
+    mood: p.mood ?? [],
+    feature: p.feature ?? [],
+    purpose: p.purpose ?? [],
     isFavorite: false,
     isCandidate: true,
     isVoted: false,
@@ -131,6 +134,7 @@ class CandidateClientSingleton {
           const base = candidateToRestaurant(it.place);
           return {
             ...base,
+            isFavorite: useRestaurantStore.getState().isFavorited(it.place.id), // 현재 찜 상태 반영
             isCandidate: true,
             voteCount: it.voteCount ?? 0,
             isVoted: (it.votedUserIds || []).includes(currentUserId),

@@ -9,7 +9,7 @@ interface Props {
   showFavoriteButton?: boolean;
   showVoteButton?: boolean;
   showCandidateButton?: boolean;
-  onStateChange?: () => void;
+  onStateChange?: (placeId?: number) => void;
   // 후보 패널에서 사용될 때 버튼 의미 변경
   isInCandidatePanel?: boolean;
   roomCode?: string;
@@ -31,8 +31,35 @@ const ActionButtons: React.FC<Props> = ({
     toggleFavorite,
     toggleVote,
     toggleCandidate,
-    getVoteCount,
   } = useRestaurantStore();
+
+  /* ✅ [추가] 방별 후보 삭제 톰브스톤 관리 유틸 (localStorage + 커스텀 이벤트)
+     - 삭제 시 addTombstone, 추가 시 removeTombstone
+     - SearchPanel/RoomPage/CandidatePanel이 이 값을 보고 서버 스냅샷에 남은 항목을 필터링 */
+  const TOMB_EVENT = 'candidate:tombstones-changed'; // 이벤트명
+  const getRoomCode = () => localStorage.getItem('roomCode') || 'default';
+  const keyFor = (room: string) => `__candidate_tombstones__::${room}`;
+  const readTombs = (room: string): number[] => {
+    try {
+      const raw = localStorage.getItem(keyFor(room));
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.map((v) => Number(v)).filter((v) => Number.isFinite(v)) : [];
+    } catch { return []; }
+  };
+  const writeTombs = (room: string, ids: number[]) => {
+    const uniq = Array.from(new Set(ids.filter((v) => Number.isFinite(v))));
+    localStorage.setItem(keyFor(room), JSON.stringify(uniq));
+    window.dispatchEvent(new CustomEvent(TOMB_EVENT, { detail: { roomCode: room } }));
+  };
+  const addTombstone = (room: string, id: number) => {
+    const prev = readTombs(room);
+    if (!prev.includes(id)) writeTombs(room, [...prev, id]);
+  };
+  const removeTombstone = (room: string, id: number) => {
+    const prev = readTombs(room);
+    if (prev.includes(id)) writeTombs(room, prev.filter((v) => v !== id));
+  };
+  /* === [추가 끝] === */
 
   const handleFavoriteToggle = async () => {
     try {
@@ -42,7 +69,7 @@ const ActionButtons: React.FC<Props> = ({
       const errorMessage = error?.message?.includes('로그인 후 이용해주세요')
       ? '로그인 후 이용해주세요.'
       : (error?.message ?? '찜 처리 중 오류가 발생했습니다.');
-    alert(errorMessage);
+      alert(errorMessage);
     }
   };
 
@@ -63,16 +90,29 @@ const ActionButtons: React.FC<Props> = ({
   const handleCandidateToggle = () => {
     const userIdNum = Number(userId);
     const currentlyOn = isCandidate(placeId);
-    // 낙관적 표시(아이콘 토글용) — 서버 브로드캐스트가 곧 동기화함
+
     toggleCandidate(placeId);
-    // STOMP로 서버에 통지 → 서버가 전체 후보 목록을 브로드캐스트함
+
+    // ✅ [추가] 후보 on/off에 따라 톰브스톤 갱신
+    const room = getRoomCode();
+    if (currentlyOn) {
+      // 후보 → 제거 : tombstone 추가
+      addTombstone(room, placeId); // [추가]
+    } else {
+      // 후보 아님 → 추가 : tombstone 제거
+      removeTombstone(room, placeId); // [추가]
+    }
+
+    // 모든 패널에서 항상 onStateChange 호출
+    if (onStateChange) {
+      onStateChange(placeId);
+    }
+
     CandidateClient.sendAction({
       placeId,
       userId: Number.isFinite(userIdNum) ? userIdNum : undefined,
       actionType: currentlyOn ? 'REMOVE_PLACE' : 'ADD_PLACE',
     });
-    // 후보 관련 액션은 실시간 동기화되므로 onStateChange 호출하지 않음
-    // onStateChange?.();
   };
 
   return (
@@ -109,9 +149,6 @@ const ActionButtons: React.FC<Props> = ({
               : (isVoted(placeId) ? '👍🏿' : '👍🏻')
             }
           </button>
-          <span className={styles.voteCount}>
-            {isInCandidatePanel ? `${getVoteCount(placeId)}표` : getVoteCount(placeId)}
-          </span>
         </div>
       )}
       

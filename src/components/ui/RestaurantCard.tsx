@@ -23,7 +23,8 @@ interface Props {
 const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
   // const hasStatus = 'isFavorite' in data;
 
-  const getSecondCategory = (category: string): string => {
+  const getSecondCategory = (category: string | null | undefined): string => {
+    if (!category) return '';
     const parts = category.split(' > ');
     return parts.length >= 2 ? parts[1] : category;
   };
@@ -41,6 +42,7 @@ const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
     
       <div className={styles.details}>
         <div className={styles.infoRow}>
+          <span className={styles.infoLabel}>주소</span>
           <span className={styles.address}>
             {data.location.roadAddress || data.location.address || ''}
           </span>
@@ -48,42 +50,42 @@ const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
       
       {data.phone && (
         <div className={styles.infoRow}>
+          <span className={styles.infoLabel}>연락처</span>
           <span className={styles.phone}>{data.phone}</span>
         </div>
       )}
-      
-      {data.distanceText && (
-          <div className={styles.infoRow}>
-            <span className={styles.distance}>{data.distanceText}</span>
-          </div>
-        )}
         
         {menuPreview.length > 0 && (
           <div className={styles.menuPreview}>
-            <div className={styles.menuTitle}>주요 메뉴</div>
-            <div className={styles.menuList}>
-              {menuPreview.join(', ')}
-            </div>
+            <span className={styles.menuLabel}>주요 메뉴</span>
+            <span className={styles.menuList}>
+              {menuPreview.join('  ')}
+            </span>
           </div>
         )}
         
         {moodTags.length > 0 && (
           <div className={styles.tags}>
-            <span className={styles.tagLabel}>분위기:</span>
-            {moodTags.map((tag, idx) => (
-              <span key={idx} className={`${styles.tag} ${styles.moodTag}`}>{tag}</span>
-            ))}
+            <span className={styles.moodLabel}>분위기</span>
+            <div className={styles.tagValues}>
+              {moodTags.map((tag, idx) => (
+                <span key={idx} className={styles.moodValue}>#{tag}</span>
+              ))}
+            </div>
           </div>
         )}
         
         {featureTags.length > 0 && (
           <div className={styles.tags}>
-            <span className={styles.tagLabel}>특징:</span>
-            {featureTags.map((tag, idx) => (
-              <span key={idx} className={`${styles.tag} ${styles.featureTag}`}>{tag}</span>
-            ))}
+            <span className={styles.featureLabel}>특징</span>
+            <div className={styles.tagValues}>
+              {featureTags.map((tag, idx) => (
+                <span key={idx} className={styles.featureValue}>#{tag}</span>
+              ))}
+            </div>
           </div>
         )}
+
         {data.place_url && (
           <div className={styles.placeUrl}>
             <a href={data.place_url} target="_blank" rel="noopener noreferrer">
@@ -91,6 +93,12 @@ const RestaurantCard: React.FC<Props> = ({ data, className, actions }) => {
             </a>
           </div>
         )}
+        {'voteCount' in data && data.voteCount !== undefined && (
+          <div className={styles.voteCountDisplay}>
+            총 {data.voteCount}표
+          </div>
+        )}
+
       </div>
       {actions && <div className={styles.actions}>{actions}</div>}
     </div>

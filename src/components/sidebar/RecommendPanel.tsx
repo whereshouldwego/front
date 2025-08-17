@@ -17,14 +17,14 @@ import type { PlaceDetail, RestaurantWithStatus } from '../../types';
 import styles from './SidebarPanels.module.css';
 
 const toRestaurantWithStatus = (p: PlaceDetail): RestaurantWithStatus => ({
-  placeId: p.placeId,
-  name: p.placeName,
+  placeId: p.id,
+  name: p.name,
   category: p.categoryDetail || '',
   location: {
     address: p.address || '',
     roadAddress: p.roadAddress || '',
-    lat: p.y != null ? Number(p.y) : 0,  // 문자열 → 숫자 변환
-    lng: p.x != null ? Number(p.x) : 0,
+    lat: p.lat,
+    lng: p.lng,
   },
   phone: p.phone || '',
   menu: p.menu || [],
@@ -68,6 +68,10 @@ const RecommendPanel: React.FC<Props> = ({ userId, roomCode }) => {
         </div>
       </div>
 
+      {/* 패널 바디 */}
+      <div className={styles.panelBody}>
+        {/* 추천 결과 */}
+        {/* {renderRecommendations()} */}
       <div className={styles.panelBody}>
         {reply && (
           <div className={styles.resultsHeader}>
@@ -104,6 +108,8 @@ const RecommendPanel: React.FC<Props> = ({ userId, roomCode }) => {
           </div>
         )}
       </div>
+    </div>
+  );
     </div>
   );
 };

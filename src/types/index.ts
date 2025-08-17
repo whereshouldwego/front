@@ -71,25 +71,26 @@ export interface Restaurant {
 }
 
 export function placeDetailToRestaurant(d: PlaceDetail): Restaurant {
-  console.log('[DEBUG] placeDetailToRestaurant 입력:', {
-    placeId: d.placeId,
-    placeName: d.placeName,
+  console.log('[DEBUG] placeDetailToRestaurant 입력 (백엔드 PlaceResponse):', {
+    id: d.id,
+    name: d.name,
+    lat: d.lat,
+    lng: d.lng,
+    categoryDetail: d.categoryDetail,
     menu: d.menu,
     mood: d.mood,
     feature: d.feature,
-    purpose: d.purpose,
-    menuType: typeof d.menu,
-    menuIsArray: Array.isArray(d.menu)
+    purpose: d.purpose
   });
   
   const result = {
-    placeId: d.placeId,
-    name: d.placeName,
-    category: d.categoryDetail,
+    placeId: d.id,                        // id → placeId
+    name: d.name,                         // name → name
+    category: d.categoryDetail || null,   // categoryDetail (null 가능)
     phone: d.phone,
     location: {
-      lat: parseFloat(d.y),
-      lng: parseFloat(d.x),
+      lat: d.lat,                         // lat (이미 number)
+      lng: d.lng,                         // lng (이미 number)
       address: d.address,
       roadAddress: d.roadAddress,
     },
@@ -201,21 +202,22 @@ export interface StartPointInfo {
   startLocation: string;
 }
 
-// 레스토랑 관련 타입 (백엔드 API 응답 구조)
+// 레스토랑 관련 타입 (백엔드 PlaceResponse와 일치)
 export interface PlaceDetail {
-  placeId: number;
-  placeName: string;
-  kakaoUrl: string;
-  x: string;                     // 경도 (문자열)
-  y: string;                     // 위도 (문자열)
-  address: string;
-  roadAddress: string;
-  phone: string;
-  categoryDetail: string;
-  menu: string[];
-  mood: string[];
-  feature: string[];
-  purpose: string[];
+  id: number;                    // 백엔드: id (Long)
+  name: string;                  // 백엔드: name (String)
+  kakaoUrl: string;              // 백엔드: kakaoUrl (String)
+  lat: number;                   // 백엔드: lat (Double) 
+  lng: number;                   // 백엔드: lng (Double)
+  address: string;               // 백엔드: address (String)
+  roadAddress: string;           // 백엔드: roadAddress (String)
+  phone: string;                 // 백엔드: phone (String)
+  categoryName: string;          // 백엔드: categoryName (String)
+  categoryDetail: string;        // 백엔드: categoryDetail (String)
+  menu: string[];                // 백엔드: menu (List<String>)
+  mood: string[];                // 백엔드: mood (List<String>)
+  feature: string[];             // 백엔드: feature (List<String>)
+  purpose: string[];             // 백엔드: purpose (List<String>)
 }
 
 // Chat History

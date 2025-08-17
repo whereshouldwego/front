@@ -11,7 +11,7 @@
  * - 내부 상태 관리 (Context 제거)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // ✅ [변경] useEffect 임포트 추가
 import { BUTTON_CONFIGS, LOGO_CONFIG } from '../../constants/sidebar';
 import type { SidebarButtonType } from '../../types';
 import styles from './Sidebar.module.css';
@@ -30,6 +30,17 @@ const Sidebar: React.FC<SidebarProps> = ({
  }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [activePanel, setActivePanel] = useState<SidebarButtonType>('search');
+
+  // ✅ [변경] 활성 패널을 로컬스토리지 + 커스텀 이벤트로 브로드캐스트하여
+  //           지도 쪽(RoomPage)이 실제 패널 상태를 정확히 알 수 있게 함
+  useEffect(() => {
+    try {
+      localStorage.setItem('__active_panel__', activePanel as string);
+      window.dispatchEvent(
+        new CustomEvent('sidebar:panel-changed', { detail: { panel: activePanel } })
+      );
+    } catch {}
+  }, [activePanel]);
 
   const toggleSidebar = () => {
     const newExpanded = !isExpanded;
@@ -62,7 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (!activePanel) {
       return 'translateY(-300px)';
     }
-    
+
     const button = buttons.find(btn => btn.type === activePanel);
     return button ? `translateY(${button.position}px)` : 'translateY(-100px)';
   };
@@ -119,4 +130,4 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
-export default Sidebar; 
+export default Sidebar;
