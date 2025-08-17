@@ -52,6 +52,31 @@
   background: rgba(248, 249, 250, 0.10);
 }
 
+/* 안내 배너 */
+.introBanner {
+  /* sticky 제거하여 채팅과 함께 위로 올라가도록 변경 */
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border: 1px solid #90caf9;
+  border-radius: 10px;
+  padding: 12px;
+  color: #0d47a1;
+  box-shadow: 0 4px 10px rgba(13, 71, 161, 0.1);
+}
+
+.introTitle {
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  font-size: 13px;
+}
+
+.introText {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
 /* 메시지 스타일 */
 .message {
   display: flex;

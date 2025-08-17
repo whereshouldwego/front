@@ -196,7 +196,7 @@ const SearchPanel: React.FC<Props> = ({ userId, center, roomCode }) => {
     if (target?.scrollIntoView) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     }
-  }, [selectedRestaurantId, mergedResults.length]);
+  }, [selectedRestaurantId]);
 
   return (
     <div className={styles.panelContent}>
