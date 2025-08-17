@@ -559,19 +559,27 @@ export const integratedSearchAPI = {
 export const favoriteAPI = {
   /** POST /api/favorites  body:{ userId, placeId } */
   create: async (body: FavoriteCreateBody): Promise<ApiResponse<FavoriteInfo>> => {
-    return apiRequest<FavoriteInfo>('/api/favorites', {
+    console.log('[CRUD DEBUG] favoriteAPI.create 호출:', body);
+    const result = await apiRequest<FavoriteInfo>('/api/favorites', {
       method: 'POST',
       body: JSON.stringify(body),
     });
+    console.log('[CRUD DEBUG] favoriteAPI.create 결과:', result);
+    return result;
   },
   /** GET /api/favorites/{userId} */
-  listByUser: async (userId: number): Promise<ApiResponse<FavoriteInfo[]>> => {
-    return apiRequest<FavoriteInfo[]>(`/api/favorites/${userId}`, { method: 'GET' });
+  listByUser: async (): Promise<ApiResponse<FavoriteInfo[]>> => {
+    const result = await apiRequest<FavoriteInfo[]>(`/api/favorites`, { method: 'GET' });
+    console.log('[CRUD DEBUG] favoriteAPI.listByUser 결과:', result);
+    return result;
   },
 
   /** DELETE /api/favorites/{favoriteId} */
   remove: async (favoriteId: number): Promise<ApiResponse<null>> => {
-    return apiRequest<null>(`/api/favorites/${favoriteId}`, { method: 'DELETE' });
+    console.log('[CRUD DEBUG] favoriteAPI.remove 호출:', favoriteId);
+    const result = await apiRequest<null>(`/api/favorites/${favoriteId}`, { method: 'DELETE' });
+    console.log('[CRUD DEBUG] favoriteAPI.remove 결과:', result);
+    return result;
   },
 };
 

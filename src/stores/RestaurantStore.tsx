@@ -16,8 +16,8 @@ export const useRestaurantStore = create<RestaurantStore>()(
 
         // --- 서버 동기화 액션들 (필수) ---
         // 즐겨찾기 초기 동기화
-        hydrateFavorites: async (userId: number) => {
-          const res = await favoriteAPI.listByUser(userId);
+        hydrateFavorites: async () => {
+          const res = await favoriteAPI.listByUser();
           if (res.success) {
             const ids = res.data.map((f) => f.placeId);
             const index: Record<number, number> = {};
@@ -47,7 +47,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
         toggleFavorite: async (placeId: number) => {
           const { favorites, favoriteIndex } = get();
           const isOn = favorites.has(placeId);
-
+  
           // 스냅샷
           const prevFavorites = new Set(favorites);
           const prevIndex = { ...favoriteIndex };
@@ -63,7 +63,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
               set((s) => ({
                 favoriteIndex: { ...s.favoriteIndex, [placeId]: res.data.favoriteId },
               }));
-            } catch (e) {
+              } catch (e) {
               set({ favorites: prevFavorites, favoriteIndex: prevIndex });
               alert('찜 처리 중 오류가 발생했습니다.');
               throw e;        
