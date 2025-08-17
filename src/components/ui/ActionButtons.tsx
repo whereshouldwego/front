@@ -30,7 +30,6 @@ const ActionButtons: React.FC<Props> = ({
     toggleFavorite,
     toggleVote,
     toggleCandidate,
-    getVoteCount,
   } = useRestaurantStore();
 
   /* ✅ [추가] 방별 후보 삭제 톰브스톤 관리 유틸 (localStorage + 커스텀 이벤트)
