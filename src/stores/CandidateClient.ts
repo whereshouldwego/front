@@ -110,6 +110,16 @@ class CandidateClientSingleton {
       connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
     });
 
+    // Ensure latest token is attached on every (re)connect attempt
+    client.beforeConnect = () => {
+      try {
+        const latest = localStorage.getItem('accessToken') || '';
+        client.connectHeaders = latest ? { Authorization: `Bearer ${latest}` } : {};
+      } catch {
+        client.connectHeaders = {} as any;
+      }
+    };
+
     client.onConnect = () => {
       this.subscribe(roomCode);
       this.flushPending();
