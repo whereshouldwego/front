@@ -14,12 +14,11 @@
  * - 반응형 breakpoint 적용
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type { MapOverlayConfig, MapCenter } from '../../types';
 import styles from './MapOverlay.module.css';
 import { useWebSocket } from '../../stores/WebSocketContext';
 import { colorFromString } from '../../utils/color';
-import { debounce } from '../../utils/search';
 import UserProfileEdit from '../profile/UserProfileEdit';
 
 interface MapOverlayProps {
@@ -63,18 +62,7 @@ const MapOverlay: React.FC<MapOverlayProps> = ({
     return String(Number.isFinite(n) && !Number.isNaN(n) ? n : userIdRaw || `user_${Math.random().toString(36).substring(2, 9)}`);
   }, []);
 
-  const sendLatLngUpdate = useCallback(
-    debounce((center: MapCenter) => {
-      sendCursorPosition(center);
-    }, 80),
-    [sendCursorPosition]
-  );
-
-  useEffect(() => {
-    if (currentMapCenter) {
-      sendLatLngUpdate(currentMapCenter);
-    }
-  }, [currentMapCenter, sendLatLngUpdate]);
+  // 지도 중심 변경에 따른 커서 전송은 비활성화
 
   // 🆕 이 지역에서 검색 처리 함수
   const handleCurrentLocationSearch = useCallback(async () => {
