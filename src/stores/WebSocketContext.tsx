@@ -59,6 +59,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
   const [allConnectedUsers, setAllConnectedUsers] = useState<Set<string>>(new Set());
   const pendingPositionsRef = useRef<Map<string, CursorPositionLatLng> | null>(null);
   const flushTimerRef = useRef<number | null>(null);
+  const lastSeenRef = useRef<Map<string, number>>(new Map());
+  const heartbeatTimerRef = useRef<number | null>(null);
+  const lastSentPositionRef = useRef<MapCenter>({ lat: 0, lng: 0 });
 
   const userIdRaw = useMemo(() => localStorage.getItem('userId') || '', []);
   const parsedUserId: number | string = useMemo(() => {
@@ -86,6 +89,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
       
       if (selfId) {
         setAllConnectedUsers(prev => new Set([...prev, selfId]));
+        lastSeenRef.current.set(selfId, Date.now());
         setUserNameById(prev => {
           const next = new Map(prev);
           if (nickname) next.set(selfId, nickname);
@@ -96,8 +100,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
         const joinPayload: BackendCursorMessage = {
           userId: parsedUserId,
           roomCode: roomCode!,
-          lat: 0, // 임시 좌표
-          lng: 0, // 임시 좌표  
+          lat: lastSentPositionRef.current.lat,
+          lng: lastSentPositionRef.current.lng,
           username: nickname || undefined,
         };
         
@@ -107,6 +111,25 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
             ws.send(JSON.stringify(joinPayload));
           }
         }, 100);
+
+        // 주기적인 하트비트 전송으로 presence 유지/갱신
+        if (heartbeatTimerRef.current != null) {
+          window.clearInterval(heartbeatTimerRef.current);
+          heartbeatTimerRef.current = null;
+        }
+        heartbeatTimerRef.current = window.setInterval(() => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          const payload: BackendCursorMessage = {
+            userId: parsedUserId,
+            roomCode: roomCode!,
+            lat: lastSentPositionRef.current.lat,
+            lng: lastSentPositionRef.current.lng,
+            username: (localStorage.getItem('userNickname') || undefined),
+          };
+          try {
+            ws.send(JSON.stringify(payload));
+          } catch {}
+        }, 15000); // 15초 주기
       }
     };
 
@@ -119,6 +142,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
         
         // 모든 사용자를 연결된 사용자 목록에 추가 (커서 메시지를 받으면 해당 사용자가 활성 상태)
         setAllConnectedUsers(prev => new Set([...prev, userId]));
+        // 마지막 활동 시간 기록
+        lastSeenRef.current.set(userId, Date.now());
         
         // 사용자명 업데이트
         if (data.username) {
@@ -160,10 +185,18 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
 
     ws.onclose = () => {
       setReadyState(ws.readyState);
+      if (heartbeatTimerRef.current != null) {
+        window.clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
     };
 
     ws.onerror = () => {
       setReadyState(ws.readyState);
+      if (heartbeatTimerRef.current != null) {
+        window.clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
     };
 
     setSocket(ws);
@@ -173,6 +206,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
       setAllConnectedUsers(new Set());
       setOtherUsersPositions(new Map());
       setUserNameById(new Map());
+      lastSeenRef.current.clear();
+      if (heartbeatTimerRef.current != null) {
+        window.clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
       ws.close();
     };
   }, [roomCode, disabled]);
@@ -186,6 +224,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
   const sendCursorPosition = (position: MapCenter) => {
     if (disabled || !roomCode) return;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    lastSentPositionRef.current = position;
     const payload: BackendCursorMessage = {
       userId: parsedUserId,
       roomCode,
@@ -217,6 +256,30 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
     otherUsersPositions,
     presentUsers,
   };
+
+  // 주기적으로 활동이 없는 사용자 정리 (presence 실시간성 개선)
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      const expiredIds: string[] = [];
+      lastSeenRef.current.forEach((ts, id) => {
+        if (now - ts > 25000) expiredIds.push(id); // 25초 이상 활동 없으면 제거
+      });
+      if (expiredIds.length === 0) return;
+      setAllConnectedUsers(prev => {
+        const next = new Set(prev);
+        expiredIds.forEach(id => next.delete(id));
+        return next;
+      });
+      setOtherUsersPositions(prev => {
+        const next = new Map(prev);
+        expiredIds.forEach(id => next.delete(id));
+        return next;
+      });
+      expiredIds.forEach(id => lastSeenRef.current.delete(id));
+    }, 10000); // 10초 주기
+    return () => window.clearInterval(interval);
+  }, []);
 
   return (
     <WebSocketContext.Provider value={contextValue}>
