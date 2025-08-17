@@ -10,18 +10,16 @@
  */
 
 import React, { useCallback, useEffect } from 'react';
-import { EMPTY_MESSAGES, PANEL_CONFIGS } from '../../constants/sidebar'; // LOADING_MESSAGES 추후 사용
+import { EMPTY_MESSAGES, PANEL_CONFIGS } from '../../constants/sidebar';
 import RestaurantCard from '../ui/RestaurantCard';
 import ActionButtons from '../ui/ActionButtons';
 import styles from './SidebarPanels.module.css';
-// import { useRecommendations } from '../../hooks/useRecommendations'; 
-// 임시로 search 사용. 추후 생성해야 함
 import { useSidebar } from '../../stores/SidebarContext';
 import type { MapCenter } from '../../types';
 
 const DEFAULT_CENTER: MapCenter = {
-  lat: 37.5002, // 역삼역 위도
-  lng: 127.0364 // 역삼역 경도
+  lat: 37.5002,
+  lng: 127.0364,
 };
 
 interface RecommendPanelProps {
@@ -30,34 +28,54 @@ interface RecommendPanelProps {
 }
 
 const RecommendPanel: React.FC<RecommendPanelProps> = ({ userId, center }) => {
-  // SidebarContext에서 검색 결과와 함수들 가져오기
-  const { 
-    searchResults,
-    performSearch,
-    setSelectedRestaurantId, // ✅ [추가] 카드 클릭 시 선택 핀 지정
-  } = useSidebar();
+  const { searchResults, performSearch, setSelectedRestaurantId, selectedRestaurantId } = useSidebar();
+  const panelBodyRef = React.useRef<HTMLDivElement | null>(null); // ✅ [추가]
 
-  // 컴포넌트 마운트 시 위치 기반 검색 실행 (추천용)
+  // ✅ [유지] 선택 강조 스타일
+  const selectedStyle: React.CSSProperties = {
+    boxShadow:
+      'inset 0 0 0 2px rgba(59,130,246,0.65), 0 12px 20px rgba(0,0,0,0.12), 0 5px 10px rgba(0,0,0,0.08)',
+    transform: 'translateY(-2px)',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    backgroundColor: 'rgba(59,130,246,0.06)',
+    borderRadius: '12px',
+    position: 'relative',
+    overflow: 'visible',
+  };
+
+  // ✅ [유지] 그라데이션 글로우
+  const gradientGlowStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: -6,
+    borderRadius: 12,
+    background:
+      'radial-gradient(60% 80% at 50% 0%, rgba(59,130,246,0.28), rgba(59,130,246,0) 70%) , linear-gradient(135deg, rgba(59,130,246,0.35), rgba(37,99,235,0.22))',
+    filter: 'blur(12px)',
+    opacity: 1,
+    zIndex: 0,
+    pointerEvents: 'none',
+  };
+
+  // 추천 로딩
   useEffect(() => {
     if (center) {
       const searchCenter = center || DEFAULT_CENTER;
       performSearch({
         query: '',
         location: `${searchCenter.lat},${searchCenter.lng}`,
-        limit: 10
+        limit: 10,
       });
     }
   }, [center, performSearch]);
 
   const handleStateChange = useCallback(async () => {
     try {
-      // 검색 결과를 다시 가져와서 상태 정보 업데이트
       if (center) {
         const searchCenter = center || DEFAULT_CENTER;
         await performSearch({
           query: '',
           location: `${searchCenter.lat},${searchCenter.lng}`,
-          limit: 10
+          limit: 10,
         });
       }
     } catch (error) {
@@ -65,7 +83,18 @@ const RecommendPanel: React.FC<RecommendPanelProps> = ({ userId, center }) => {
     }
   }, [center, performSearch]);
 
-  // 추천 결과 렌더링
+  // ✅ [추가] 선택된 카드로 스크롤 포커스 이동
+  useEffect(() => {
+    if (!selectedRestaurantId || !panelBodyRef.current) return;
+    const target = panelBodyRef.current.querySelector(
+      `[data-place-id="${selectedRestaurantId}"]`
+    ) as HTMLElement | null;
+    if (target?.scrollIntoView) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    }
+  }, [selectedRestaurantId, searchResults?.length]);
+
+  // 렌더
   const renderRecommendations = () => {
     if (!searchResults || searchResults.length === 0) {
       return (
@@ -80,28 +109,35 @@ const RecommendPanel: React.FC<RecommendPanelProps> = ({ userId, center }) => {
           <span>추천 맛집 ({searchResults.length}개)</span>
         </div>
         <div className={styles.restaurantCards}>
-          {searchResults.map((restaurant) => (
-            // ✅ [추가] 카드 클릭 시 해당 식당으로 지도 포커스 이동
-            <div
-              key={restaurant.placeId}
-              className={styles.restaurantCard}
-              onClick={() => setSelectedRestaurantId(String(restaurant.placeId))} // ✅ [추가]
-            >
-              <RestaurantCard
-                data={restaurant}
+          {searchResults.map((restaurant) => {
+            const selected = String(selectedRestaurantId) === String(restaurant.placeId);
+            return (
+              <div
+                key={restaurant.placeId}
                 className={styles.restaurantCard}
-                actions={
-                  <ActionButtons
-                    userId={userId}
-                    placeId={restaurant.placeId}
-                    showFavoriteButton
-                    showCandidateButton
-                    onStateChange={handleStateChange}
+                data-place-id={restaurant.placeId} // ✅ [추가]
+                style={selected ? selectedStyle : undefined}
+                onClick={() => setSelectedRestaurantId(String(restaurant.placeId))}
+              >
+                {selected && <div style={gradientGlowStyle} aria-hidden />}{/* 유지 */}
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <RestaurantCard
+                    data={restaurant}
+                    className={styles.restaurantCard}
+                    actions={
+                      <ActionButtons
+                        userId={userId}
+                        placeId={restaurant.placeId}
+                        showFavoriteButton
+                        showCandidateButton
+                        onStateChange={handleStateChange}
+                      />
+                    }
                   />
-                }
-              />
-            </div>
-          ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -119,8 +155,7 @@ const RecommendPanel: React.FC<RecommendPanelProps> = ({ userId, center }) => {
       </div>
 
       {/* 패널 바디 */}
-      <div className={styles.panelBody}>
-        {/* 추천 결과 */}
+      <div className={styles.panelBody} ref={panelBodyRef}>{/* ✅ [추가] ref 부착 */}
         {renderRecommendations()}
       </div>
     </div>

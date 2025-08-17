@@ -203,6 +203,19 @@ const MapContainer: React.FC<MapContainerProps> = ({
     eventHandlers?.onMarkerClick?.(markerId);
   };
 
+  // ✅ [추가] 특정 좌표로 부드럽게 포커스(센터 이동)하는 헬퍼
+  const focusOnMarker = (pos: MapCenter) => {
+    const kakao = (window as any).kakao;
+    if (!mapObjectRef.current || !kakao || !kakao.maps) return;
+    try {
+      const latlng = new kakao.maps.LatLng(pos.lat, pos.lng);
+      mapObjectRef.current.panTo(latlng);  // ✅ 클릭한 마커 방향으로 부드럽게 이동
+      setCurrentCenter(pos);               // ✅ 내부 상태도 동기화
+    } catch (e) {
+      console.warn('[MapContainer] focusOnMarker panTo 실패:', e);
+    }
+  };
+
   // 외부에서 지도 중심점 접근
   const getCurrentCenter = (): MapCenter => currentCenter;
   useEffect(() => {
@@ -320,7 +333,12 @@ const MapContainer: React.FC<MapContainerProps> = ({
               position={{ lat: pos.lat, lng: pos.lng }}
               image={getMarkerImage(isSelected, isFavorite, isCandidate)}
               zIndex={isSelected ? 100 : isCandidate ? 70 : isFavorite ? 50 : 10}
-              onClick={() => handleMarkerClick(m.id)}
+              onClick={() => {
+                // ✅ [추가] 핀(마커) 클릭 시 해당 좌표로 포커스(센터) 이동
+                focusOnMarker(pos);
+                // 기존 동작 유지: 외부 클릭 핸들러 호출
+                handleMarkerClick(m.id);
+              }}
               onMouseOver={() => setHoveredMarkerId(m.id)}
               onMouseOut={() => setHoveredMarkerId((prev) => (prev === m.id ? null : prev))}
             />

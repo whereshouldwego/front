@@ -15,7 +15,7 @@ import RestaurantCard from '../ui/RestaurantCard';
 import ActionButtons from '../ui/ActionButtons';
 import styles from './SidebarPanels.module.css';
 import { useCandidates } from '../../hooks/useCandidates';
-import { useSidebar } from '../../stores/SidebarContext'; // ✅ [추가] 지도 선택 상태 제어를 위해 임포트
+import { useSidebar } from '../../stores/SidebarContext'; // [유지]
 
 interface Props {
   roomCode?: string;
@@ -25,9 +25,10 @@ interface Props {
 const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
   const { items, optimisticItems, setOptimisticItems, loading, error, refresh } = useCandidates(roomCode);
 
-  const { setSelectedRestaurantId } = useSidebar(); // ✅ [추가] 카드 클릭 시 선택 핀 지정(검색 패널과 동일)
+  const { setSelectedRestaurantId, selectedRestaurantId } = useSidebar(); // [유지]
+  const panelBodyRef = React.useRef<HTMLDivElement | null>(null); // [유지] 스크롤 포커스용
 
-  // ✅ [추가] 방별 후보 삭제 톰브스톤 상태(렌더 필터용)
+  // [유지] 방별 후보 삭제 톰브스톤 상태(렌더 필터용)
   const TOMB_EVENT = 'candidate:tombstones-changed';
   const room = roomCode || localStorage.getItem('roomCode') || '';
   const keyFor = (r: string) => `__candidate_tombstones__::${r}`;
@@ -38,9 +39,9 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
       return new Set(arr.map((v) => Number(v)).filter((v) => Number.isFinite(v)));
     } catch { return new Set(); }
   };
-  const [candidateTombstones, setCandidateTombstones] = React.useState<Set<number>>(() => readTombs(room)); // [기존 유지]
-  React.useEffect(() => { setCandidateTombstones(readTombs(room)); }, [room]); // [기존 유지]
-  React.useEffect(() => { // [기존 유지]
+  const [candidateTombstones, setCandidateTombstones] = React.useState<Set<number>>(() => readTombs(room)); // [유지]
+  React.useEffect(() => { setCandidateTombstones(readTombs(room)); }, [room]); // [유지]
+  React.useEffect(() => { // [유지]
     const onChange = (e: any) => { if (!e?.detail || e.detail.roomCode === room) setCandidateTombstones(readTombs(room)); };
     const onStorage = (e: StorageEvent) => { if (e.key && e.key === keyFor(room)) setCandidateTombstones(readTombs(room)); };
     window.addEventListener(TOMB_EVENT, onChange);
@@ -51,7 +52,7 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
     };
   }, [room]);
 
-  // 후보 삭제 시 낙관적으로 리스트에서 제거 (useCandidates의 setOptimisticItems 사용)
+  // 후보 삭제 시 낙관적으로 리스트에서 제거
   const handleStateChange = React.useCallback((removePlaceId?: number) => {
     if (removePlaceId) {
       setOptimisticItems((prev) => {
@@ -77,10 +78,39 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
     }
   };
 
-  // 항상 최신 items를 사용하도록, optimisticItems가 null이거나 items와 동일하면 items 사용
+  /* =========================
+   * 선택 강조 스타일 (그라데이션 글로우 제거)
+   * ========================= */
+  // ✅ [변경] 카드 바깥 그림자 + 인셋 파란 보더 + 살짝 떠 있음만 유지
+  const selectedUnifiedStyle: React.CSSProperties = {
+    boxShadow:
+      'inset 0 0 0 2px rgba(59,130,246,0.65), 0 12px 20px rgba(0,0,0,0.12), 0 5px 10px rgba(0,0,0,0.08)',
+    transform: 'translateY(-2px)',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    backgroundColor: 'rgba(59,130,246,0.06)',
+    borderRadius: '12px',
+    position: 'relative',
+    overflow: 'visible',
+  };
+
+  // ✅ [삭제] 그라데이션 글로우 스타일 및 엘리먼트 제거
+  // const gradientGlowStyle: React.CSSProperties = { ... }
+
+  // 항상 최신 items를 사용
   const candidateList = (!optimisticItems || optimisticItems === items || optimisticItems.length === 0)
     ? items
     : optimisticItems;
+
+  // [유지] 선택된 카드로 스크롤 포커스 이동
+  React.useEffect(() => {
+    if (!selectedRestaurantId || !panelBodyRef.current) return;
+    const target = panelBodyRef.current.querySelector(
+      `[data-place-id="${selectedRestaurantId}"]`
+    ) as HTMLElement | null;
+    if (target?.scrollIntoView) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    }
+  }, [selectedRestaurantId, candidateList.length]);
 
   return (
     <div className={styles.panelContent}>
@@ -94,7 +124,7 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
       </div>
 
       {/* 패널 바디 */}
-      <div className={styles.panelBody}>
+      <div className={styles.panelBody} ref={panelBodyRef}>
         {/* 로딩 상태 */}
         {loading && (
           <div className={styles.loadingState}>
@@ -118,39 +148,49 @@ const CandidatePanel: React.FC<Props> = ({ roomCode, userId }) => {
             </div>
             <div className={styles.restaurantCards}>
               {candidateList
-                .filter(r => !candidateTombstones.has(Number(r.placeId))) // [기존 유지] tombstone 숨김
+                .filter(r => !candidateTombstones.has(Number(r.placeId))) // [유지] tombstone 숨김
                 .map((restaurant, index) => {
                   const rankInfo = getRankInfo(index, restaurant.voteCount || 0);
+                  const isSelected = String(selectedRestaurantId ?? '') === String(restaurant.placeId);
+
                   return (
                     <div
                       key={`candidate-${restaurant.placeId}-${index}`}
                       className={`${styles.candidateItem} ${rankInfo.className}`}
+                      data-place-id={restaurant.placeId}
                       onClick={() => {
-                        /* ✅ [추가] 카드 클릭 시 해당 식당 핀을 선택 → MapContainer가 확대/포커스 처리(검색 패널과 동일) */
+                        // [유지] 카드 클릭 시 해당 식당 핀 선택 → MapContainer가 포커스 처리
                         setSelectedRestaurantId(String(restaurant.placeId));
                       }}
+                      style={isSelected ? selectedUnifiedStyle : undefined} // ✅ [변경] 강조 유지(글로우 없음)
                     >
-                      {/* 순위 표시 */}
+                      {/* ✅ [삭제] 선택 시 그라데이션 글로우 엘리먼트 제거 */}
+                      {/* {isSelected && <div style={gradientGlowStyle} aria-hidden />} */}
+
+                      {/* 순위 표시(디자인 유지) */}
                       {rankInfo.medal && (
                         <div className={styles.rankBadge}>
                           <span className={styles.rankMedal}>{rankInfo.medal}</span>
                           <span className={styles.rankText}>{rankInfo.rankText}</span>
                         </div>
                       )}
-                      <RestaurantCard
-                        data={restaurant}
-                        className={styles.restaurantCard}
-                        actions={
-                          <ActionButtons
-                            userId={userId || 1}
-                            placeId={restaurant.placeId}
-                            showCandidateButton
-                            showVoteButton
-                            onStateChange={handleStateChange}
-                            isInCandidatePanel={true}
-                          />
-                        }
-                      />
+
+                      <div style={{ position: 'relative', zIndex: 1 }}>
+                        <RestaurantCard
+                          data={restaurant}
+                          className={styles.restaurantCard}
+                          actions={
+                            <ActionButtons
+                              userId={userId || 1}
+                              placeId={restaurant.placeId}
+                              showCandidateButton
+                              showVoteButton
+                              onStateChange={handleStateChange}
+                              isInCandidatePanel={true}
+                            />
+                          }
+                        />
+                      </div>
                     </div>
                   );
                 })}

@@ -11,7 +11,7 @@
  * - 내부 상태 관리 (Context 제거)
  */
 
-import React, { useState, useEffect } from 'react'; // ✅ [변경] useEffect 임포트 추가
+import React, { useState, useEffect } from 'react'; // ✅ [변경] useEffect 임포트 유지
 import { BUTTON_CONFIGS, LOGO_CONFIG } from '../../constants/sidebar';
 import type { SidebarButtonType } from '../../types';
 import styles from './Sidebar.module.css';
@@ -23,6 +23,9 @@ interface SidebarProps {
   onButtonClick?: (buttonType: SidebarButtonType) => void;
 }
 
+// ✅ [추가] 외부 이벤트로 전환 가능한 패널 화이트리스트
+const ALLOWED_PANELS: SidebarButtonType[] = ['search', 'recommend', 'candidate', 'favorite'];
+
 const Sidebar: React.FC<SidebarProps> = ({
   onExpandedChange,
   onLogoClick,
@@ -31,16 +34,33 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isExpanded, setIsExpanded] = useState(true);
   const [activePanel, setActivePanel] = useState<SidebarButtonType>('search');
 
-  // ✅ [변경] 활성 패널을 로컬스토리지 + 커스텀 이벤트로 브로드캐스트하여
-  //           지도 쪽(RoomPage)이 실제 패널 상태를 정확히 알 수 있게 함
+  // ✅ [변경] 활성 패널 브로드캐스트 + 전역 노출(window.__activeSidebarPanel)
   useEffect(() => {
     try {
       localStorage.setItem('__active_panel__', activePanel as string);
       window.dispatchEvent(
         new CustomEvent('sidebar:panel-changed', { detail: { panel: activePanel } })
       );
+      (window as any).__activeSidebarPanel = activePanel; // ✅ [추가] 외부(RoomPage 등)에서 현재 패널 참조용
     } catch {}
   }, [activePanel]);
+
+  // ✅ [추가] 외부에서 패널 전환 요청 수신 (RoomPage → Sidebar)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ panel?: SidebarButtonType }>;
+      const next = ce?.detail?.panel;
+      if (!next || !ALLOWED_PANELS.includes(next)) return;
+
+      // 닫혀 있으면 자동으로 펼치고 패널 전환
+      setIsExpanded(true);
+      setActivePanel(next);
+      onButtonClick?.(next);
+    };
+
+    window.addEventListener('sidebar:set-active-panel', handler as EventListener);
+    return () => window.removeEventListener('sidebar:set-active-panel', handler as EventListener);
+  }, [onButtonClick]);
 
   const toggleSidebar = () => {
     const newExpanded = !isExpanded;

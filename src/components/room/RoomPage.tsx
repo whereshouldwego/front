@@ -5,11 +5,7 @@
  * - ✅ 후보 패널(useCandidates)의 items를 받아 지도 마커로 변환
  * - ✅ 검색/찜/후보 마커 병합 시 같은 placeId는 후보가 우선
  * - ✅ MapContainer에는 최종 병합된 markers만 전달
- *
- * ★ [변경 요약]
- * - 카카오 로그인 토큰이 있으면(= userType==='kakao' && accessToken 존재) 게스트 발급(/api/auth/guest) 절대 호출하지 않고,
- *   곧바로 Authorization: Bearer <kakaoToken> 으로 방 입장 API 호출.
- * - 게스트 중복 생성 방지 로직(StrictMode 2회 마운트 대비)은 그대로 유지하되, 카카오 분기에서는 비활성.
+ * - ✅ [추가] 마커 클릭 시 해당 타입(검색/추천/후보/찜)에 맞는 패널로 자동 전환 (Sidebar 커스텀 이벤트 사용)
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -26,7 +22,7 @@ import MapOverlay from '../map/MapOverlay';
 import ChatSection from '../chat/ChatSection';
 
 import styles from './RoomPage.module.css';
-import type { MapCenter, MapEventHandlers, MapMarker, Restaurant } from '../../types';
+import type { MapCenter, MapEventHandlers, MapMarker, Restaurant, SidebarButtonType } from '../../types';
 
 /* 후보 훅 */
 import { useCandidates } from '../../hooks/useCandidates';
@@ -89,7 +85,7 @@ const RoomPage: React.FC = () => {
       const joinedKey = `joined::${id}`;
       const firstEntryInThisTab = sessionStorage.getItem(joinedKey) !== '1';
 
-      // ★ [변경] StrictMode(개발모드)에서 useEffect 2번 문제로 인한 게스트 중복 발급 방지 키
+      // StrictMode 게스트 중복 발급 방지 키
       const authInFlightKey = `guestAuthInFlight::${id}`;
 
       // 현재 로컬 상태
@@ -99,13 +95,10 @@ const RoomPage: React.FC = () => {
       const bound = localStorage.getItem('guestBoundRoomCode') || '';
       const userType = localStorage.getItem('userType') || '';
 
-      // ★ [변경] 카카오 로그인 여부(카카오면 게스트 발급 금지)
-      const isKakao = userType === 'kakao' && !!token; // ← accessToken 존재까지 확인
+      const isKakao = userType === 'kakao' && !!token;
 
-      // 게스트 자격 보유 여부(게스트만 의미 있음)
-      const hasLocalForThisRoom = !isKakao && !!token && bound === id; // ★ [변경] isKakao면 항상 false
+      const hasLocalForThisRoom = !isKakao && !!token && bound === id;
 
-      // ★ [변경] (게스트 전용) 첫 인스턴스가 토큰을 저장할 때까지 대기
       const waitForGuestToken = async (roomId: string, timeoutMs = 2000, stepMs = 100) => {
         const start = Date.now();
         while (Date.now() - start < timeoutMs) {
@@ -122,15 +115,12 @@ const RoomPage: React.FC = () => {
       };
 
       const ensureGuestAuth = async (forceNew: boolean) => {
-        if (isKakao) return; // ★ [변경] 카카오면 게스트 발급 절대 금지
+        if (isKakao) return; // 카카오면 게스트 발급 금지
 
-        // (게스트) 다른 마운트가 발급 중이면 대기만
         if (sessionStorage.getItem(authInFlightKey) === '1') {
           await waitForGuestToken(id);
           return;
         }
-
-        // (게스트) 내가 발급 시작
         sessionStorage.setItem(authInFlightKey, '1');
 
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/guest?roomCode=${id}`, {
@@ -161,7 +151,7 @@ const RoomPage: React.FC = () => {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${id}`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`, // ★ [중요] 카카오/게스트 공통 — 해당 토큰으로 참여
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           }
         });
@@ -187,7 +177,6 @@ const RoomPage: React.FC = () => {
       /* ===== 실행 흐름 ===== */
       if (firstEntryInThisTab) {
         if (isKakao) {
-          // ★ [변경] 카카오: 게스트 발급 없이 바로 참여
           await joinRoom();
         } else if (hasLocalForThisRoom) {
           await joinRoom();
@@ -198,7 +187,6 @@ const RoomPage: React.FC = () => {
         sessionStorage.setItem(joinedKey, '1');
       } else {
         if (isKakao) {
-          // ★ [변경] 카카오: 재진입도 항상 카카오 토큰으로 참여
           await joinRoom();
         } else if (!token || bound !== id) {
           await ensureGuestAuth(false);
@@ -255,8 +243,7 @@ const RoomPage: React.FC = () => {
     const isRoomFull = error === ROOM_FULL_SENTINEL;
     return (
       <div className={styles.errorContainer}>
-                {/* 음식 이모티콘 비 애니메이션 */}
-                <div className={styles.foodRain}>
+        <div className={styles.foodRain}>
           <div className={styles.foodDrop}>🍕</div>
           <div className={styles.foodDrop}>🍔</div>
           <div className={styles.foodDrop}>🍜</div>
@@ -320,7 +307,7 @@ const RoomPage: React.FC = () => {
               <button onClick={handleShareRoom} className={styles.shareButton}>
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2z" />
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2h-8a2 2 0 00-2-2z" />
                 </svg>
                 방 공유하기
               </button>
@@ -332,9 +319,16 @@ const RoomPage: React.FC = () => {
   );
 };
 
-/* === 이하 지도/찜/검색 로직 (변경 없음) === */
+/* === 이하 지도/찜/검색 로직 === */
 const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
-  const { searchResults, setMapCenter, performSearch, selectedRestaurantId, mapCenter, setActivePanel } = useSidebar();
+  const {
+    searchResults,
+    setMapCenter,
+    performSearch,
+    selectedRestaurantId,
+    mapCenter,
+    setSelectedRestaurantId,
+  } = useSidebar();
   const { sendCursorPosition, otherUsersPositions } = useWebSocket();
 
   const { favorites, favoriteIndex } = useRestaurantStore();
@@ -343,9 +337,15 @@ const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
   const [showCurrentLocationButton, setShowCurrentLocationButton] = useState(false);
   const [lastSearchCenter] = useState<MapCenter | null>(null);
 
+  // ✅ [변경] 현재 위치에서 검색 시 '검색' 패널로 전환을 이벤트로 요청
+  const requestSidebarPanel = useCallback((panel: SidebarButtonType) => {
+    // 사이드바가 수신하는 전역 이벤트
+    window.dispatchEvent(new CustomEvent('sidebar:set-active-panel', { detail: { panel } })); // ✅ [추가]
+  }, []);
+
   const handleCurrentLocationSearch = useCallback(async (center: MapCenter) => {
     try {
-      setActivePanel('search');
+      requestSidebarPanel('search'); // ✅ [추가] 검색 패널로 전환 요청
       await performSearch({
         query: '',
         center: center,
@@ -353,7 +353,7 @@ const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
     } catch (error) {
       console.error('이 지역에서 검색 실패:', error);
     }
-  }, [setActivePanel, performSearch]);
+  }, [performSearch, requestSidebarPanel]);
 
   /* (유지) 찜 상태 보강 */
   useEffect(() => {
@@ -477,9 +477,37 @@ const RoomMainContent: React.FC<{ roomCode: string }> = ({ roomCode }) => {
     }
   }, [lastSearchCenter, setMapCenter]);
 
+  // ✅ [추가] 마커 클릭 시 패널 자동 전환 + 선택 카드 포커스 (Sidebar 전역 이벤트 사용)
   const mapEventHandlers: MapEventHandlers = {
     onMapClick: (lat, lng) => console.log('지도 클릭:', lat, lng, '방:', roomCode),
-    onMarkerClick: (markerId) => console.log('마커 클릭:', markerId, '방:', roomCode),
+    onMarkerClick: (markerId) => {
+      setSelectedRestaurantId(String(markerId));
+
+      try {
+        const clicked = (finalMapMarkers || []).find(m => String(m.id) === String(markerId));
+        // 현재 사이드바 패널(추천/검색 구분 시 보조 지표)
+        const currentPanel: SidebarButtonType =
+          (window as any).__activeSidebarPanel || 'search';
+
+        // 우선순위: 후보 → 찜 → 추천 → 검색
+        if ((clicked as any)?.isCandidate) {
+          requestSidebarPanel('candidate'); // ✅ [추가]
+        } else if ((clicked as any)?.isFavorite) {
+          requestSidebarPanel('favorite');  // ✅ [추가]
+        } else if (currentPanel === 'recommend') {
+          // 추천 탭을 보고 있었다면 추천으로 유지
+          requestSidebarPanel('recommend'); // ✅ [추가]
+        } else if ((searchResults ?? []).some(r => String(r.placeId) === String(markerId))) {
+          requestSidebarPanel('search');    // ✅ [추가]
+        } else {
+          requestSidebarPanel('search');    // ✅ [추가] 기본은 검색
+        }
+      } catch (e) {
+        console.warn('패널 전환 판단 중 오류:', e);
+      }
+
+      console.log('마커 클릭:', markerId, '방:', roomCode);
+    },
     onMapDragEnd: (center) => console.log('지도 드래그 종료:', center, '방:', roomCode),
     onMapZoomChanged: (level) => console.log('지도 줌 변경:', level, '방:', roomCode),
   };
