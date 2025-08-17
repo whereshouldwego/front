@@ -24,7 +24,7 @@ export const PANEL_TYPES = {
 // 패널 설정
 export const PANEL_CONFIGS: Record<string, SidebarPanelConfig> = {
   [PANEL_TYPES.SEARCH]: {
-    title: 'Stroll Around',
+    title: '여기갈래 검색',
     searchPlaceholder: '위치를 입력하세요',
     showSearchField: true
   },

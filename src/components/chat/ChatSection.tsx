@@ -55,7 +55,9 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
   };
 
   const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString('ko-KR', {
+    // DB 시간이 UTC로 저장되어 표시 시간이 실제보다 느리게 보이는 문제 보정: +9시간(KST)
+    const adjusted = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    return adjusted.toLocaleTimeString('ko-KR', {
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -67,10 +69,36 @@ const ChatSection: React.FC<ChatSectionProps> = () => {
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages]);
 
+  // 안내 배너 표시 여부 (방별 1회 닫기 유지)
+  const [showIntro, setShowIntro] = useState<boolean>(() => {
+    const code = (window.location.pathname.match(/\/rooms\/(.+)$/) || [])[1] || '';
+    const key = code ? `chat_intro_banner_hidden::${code}` : '';
+    if (!key) return true;
+    return localStorage.getItem(key) !== '1';
+  });
+
+  const handleHideIntro = () => {
+    const code = (window.location.pathname.match(/\/rooms\/(.+)$/) || [])[1] || '';
+    if (code) {
+      try { localStorage.setItem(`chat_intro_banner_hidden::${code}`, '1'); } catch {}
+    }
+    setShowIntro(false);
+  };
+
   return (
     <div className={styles.chatSection}>
       {/* 메시지 목록 */}
       <div className={styles.messagesContainer} ref={listRef}>
+        {showIntro && (
+          <div className={styles.introBanner} onClick={handleHideIntro} role="button" title="클릭하여 닫기">
+            <div className={styles.introTitle}>맛돌이 사용법 안내</div>
+            <p className={styles.introText}>
+안녕하세요! 저는 맛돌이 입니다.
+아래에 맛돌이 활성화 버튼을 누른 후 정보를 알려주시면 약속 장소에 적합한 가게들을 추천드릴게요!
+필요하다면 항상 절 찾아주세요!
+            </p>
+          </div>
+        )}
         {messages.map((msg: ChatMessage, idx: number) => {
           const isMine = String(msg.userId ?? '') === String(selfUserId);
           const createdAt = msg.createdAt || msg.timestamp || new Date().toISOString();
