@@ -87,6 +87,9 @@
   flex-direction: column;
   align-items: center;
   gap: 3px;
+  /* hover 시 아이콘 확대를 위한 여유 공간 확보 */
+  padding: 4px;
+  box-sizing: border-box;
 }
 
 .userAvatar {
@@ -100,10 +103,7 @@
   border: 1.5px solid #ffffff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s ease;
-}
-
-.userAvatar:hover {
-  transform: scale(1.08);
+  margin: 4px;
 }
 
 /* 현재 사용자 프로필 스타일 */
@@ -111,11 +111,15 @@
   cursor: pointer;
   border-color: #3b82f6 !important;
   box-shadow: 0 1px 3px rgba(59, 130, 246, 0.5), 0 0 0 2px rgba(59, 130, 246, 0.1);
+  transition: all 0.2s ease;
+  /* hover 시 확대를 위한 여유 공간 확보 */
+  margin: 4px;
 }
 
 .currentUserAvatar:hover {
   transform: scale(1.15);
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.6), 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: #1d4ed8 !important;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.3), 0 0 0 3px rgba(29, 78, 216, 0.1);
 }
 
 .userIcon {
@@ -123,6 +127,7 @@
   height: 13px;
   color: #ffffff;
   filter: drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.3));
+  transition: none;
 }
 
 .userNickname {
@@ -135,6 +140,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.1;
+  margin-top: 2px;
 }
 
 /* 현재 사용자 닉네임 스타일 */
@@ -186,6 +192,7 @@
   color: #6366f1;
   font-size: 11px;
   font-weight: 600;
+  margin: 2px;
 }
 
 .expandButton:hover {

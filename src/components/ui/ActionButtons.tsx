@@ -149,9 +149,6 @@ const ActionButtons: React.FC<Props> = ({
               : (isVoted(placeId) ? '👍🏿' : '👍🏻')
             }
           </button>
-          <span className={styles.voteCount}>
-            {isInCandidatePanel ? `${getVoteCount(placeId)}표` : getVoteCount(placeId)}
-          </span>
         </div>
       )}
       
